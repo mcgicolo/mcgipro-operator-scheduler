@@ -1,6 +1,6 @@
 import type { Assignment } from '../config/types'
 
-export type BackendKind = 'supabase' | 'local'
+export type BackendKind = 'supabase' | 'postgres' | 'local'
 export type ConnectionStatus = 'connecting' | 'live' | 'offline'
 
 export interface SubscribeHandlers {

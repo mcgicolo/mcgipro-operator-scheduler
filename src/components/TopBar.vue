@@ -19,7 +19,7 @@ const title = computed(() => titleCase(state.title))
 
 const status = computed(() => {
   if (state.backendKind === 'local') return { cls: 'demo', label: 'Demo mode' }
-  if (state.connection === 'live') return { cls: 'live', label: 'Live' }
+  if (state.connection === 'live') return { cls: 'live', label: state.backendKind === 'postgres' ? 'Live · local DB' : 'Live' }
   if (state.connection === 'offline') return { cls: 'off', label: 'Reconnecting…' }
   return { cls: 'off', label: 'Connecting…' }
 })

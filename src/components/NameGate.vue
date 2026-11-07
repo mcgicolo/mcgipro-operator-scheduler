@@ -56,6 +56,7 @@ function submit() {
             :aria-invalid="touched && !!error"
             aria-describedby="gate-err"
             @blur="touched = true"
+            @keydown.enter.prevent="!$event.isComposing && submit()"
           />
           <button v-if="name" type="button" class="clear" aria-label="Clear" @click="name = ''; input?.focus()">
             <svg viewBox="0 0 24 24" aria-hidden="true">

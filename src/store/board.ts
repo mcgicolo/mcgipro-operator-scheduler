@@ -54,7 +54,7 @@ interface State {
   assignments: Record<string, Assignment>
   nickname: string
   clientId: string
-  backendKind: 'supabase' | 'local' | null
+  backendKind: 'supabase' | 'postgres' | 'local' | null
   connection: ConnectionStatus
   toasts: Toast[]
   now: number

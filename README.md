@@ -21,6 +21,29 @@ npm run dev
 
 `npm run dev` also serves on your LAN IP, so you can open it on a phone on the same Wi-Fi.
 
+## Local development with PostgreSQL
+
+To test against a real database without touching Supabase, run the board on a local PostgreSQL. You need PostgreSQL running on your machine, for example `brew install postgresql@18 && brew services start postgresql@18`.
+
+```bash
+npm run db:setup   # creates the mcgi_board database and applies db/local-schema.sql (safe to re-run)
+npm run dev:pg     # vite --mode pg, which loads .env.pg
+```
+
+The status pill shows **Live · local DB**. A dev-only Vite plugin (`server/pgDevApi.ts`) serves a small REST and Server-Sent Events API at `/mcgipro-operator-scheduler/api/` and uses Postgres `LISTEN/NOTIFY` to push changes, so tabs and phones on your LAN stay in sync.
+
+- **Use another database.** `.env.pg` points at `postgres://localhost:5432/mcgi_board`. Override `DATABASE_URL` in `.env.pg.local` or inline, as in `DATABASE_URL=postgres://user@host/db npm run dev:pg`. `db:setup` only targets `mcgi_board`, so apply the schema yourself with `psql -d <db> -f db/local-schema.sql`.
+- **Reset the board.** Run `psql -d mcgi_board -c 'truncate assignments'`.
+- **Dev only.** This backend exists only under `vite` dev. Production builds never include it, and the deployed site still uses Supabase.
+
+The backend is picked at startup, first match wins:
+
+| Mode | How it's chosen | Data lives in |
+|---|---|---|
+| Local PostgreSQL | `VITE_BACKEND=postgres` in dev (`npm run dev:pg`) | Your local `mcgi_board` database |
+| Supabase | `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set | The Supabase project |
+| Demo | Neither of the above | This browser's localStorage |
+
 ## One-time Supabase setup
 
 1. Open the project in the Supabase dashboard and go to **SQL Editor**.
@@ -54,4 +77,4 @@ Every entry has a permanent UUID, and stickies are attached to UUIDs:
 
 For the first deploy only, go to **GitHub → Settings → Pages → Source** and pick branch `gh-pages`, folder `/ (root)`.
 
-The board will be live at `https://<github-user>.github.io/mcgipro-operator-scheduler/`.
+The board will be live at `https://mcgicolo.github.io/mcgipro-operator-scheduler/` (repo: [github.com/mcgicolo/mcgipro-operator-scheduler](https://github.com/mcgicolo/mcgipro-operator-scheduler)).

@@ -140,8 +140,12 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   justify-items: center;
-  max-height: min(60vh, calc(100vh - 220px));
-  max-height: min(60dvh, calc(100dvh - 220px));
+  /* Tall phones: up to 60% of the screen. Short screens: whatever the sheet has
+     left under its header (see the flex column below), so every row stays reachable. */
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 60vh;
+  max-height: 60dvh;
   padding-bottom: 20px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -150,6 +154,18 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
   scroll-snap-type: none;
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
+}
+/* Expanded sheet never grows past the screen: header + a list that fills the rest */
+@media (max-width: 767.98px) {
+  .palette.expanded {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - var(--safe-t) - 12px);
+    max-height: calc(100dvh - var(--safe-t) - 12px);
+  }
+  .expanded .head {
+    flex: 0 0 auto;
+  }
 }
 /* Expanded grid: vertical swipes scroll; long-press picks a name up */
 .expanded .list :deep(.v-palette) {

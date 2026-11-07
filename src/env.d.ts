@@ -9,4 +9,6 @@ declare module '*.vue' {
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
   readonly VITE_SUPABASE_ANON_KEY?: string
+  /** "postgres" → use the local PostgreSQL dev API (npm run dev:pg) */
+  readonly VITE_BACKEND?: string
 }
