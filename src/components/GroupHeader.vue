@@ -34,7 +34,7 @@ defineProps<{ name: string; short: string; color: string; filled: number; total:
 }
 
 /* ---------- desktop: Miro colored bar ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .group-header {
     justify-content: center;
     gap: 8px;

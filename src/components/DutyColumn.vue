@@ -75,6 +75,7 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
   position: relative;
   display: flex;
   flex-direction: column;
+  /* 16px is enough sideways too: .board (App.vue) already insets the whole card past the notch */
   padding: 11px 16px 12px;
   background: var(--bg-cell);
   transition: background 0.15s;
@@ -191,6 +192,34 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
   animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
+/* Compact height (phone held sideways): the screen is wide but short, so the duty label
+   sits beside its notes instead of above them, and the notes shrink to 64px — a row
+   is ~80px tall and fits between the nav and the tray. */
+@media (max-height: 539.98px) {
+  .duty {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    padding-top: 10px;
+    padding-bottom: 8px;
+  }
+  .head {
+    flex: 0 0 196px;
+    min-height: 64px; /* centred on the first row of notes */
+  }
+  .body {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 10px 8px;
+    padding: 0;
+  }
+  .empty {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+  }
+}
+
 .pop-enter-active {
   transition: transform 0.3s var(--ease-ios), opacity 0.2s;
 }
@@ -200,7 +229,7 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
 }
 
 /* ---------- desktop: Miro-like column ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .duty {
     --accent: var(--playback);
     --soft: #eaf2ff;
@@ -284,12 +313,12 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
   }
 }
 /* Dark mode: #3a3a3c column borders vanish on the dark canvas; lift them toward --ink-2. */
-@media (min-width: 768px) and (prefers-color-scheme: dark) {
+@media (min-width: 768px) and (min-height: 540px) and (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .body {
     border-color: color-mix(in srgb, var(--col-border) 72%, var(--ink-2));
   }
 }
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   :root[data-theme='dark'] .body {
     border-color: color-mix(in srgb, var(--col-border) 72%, var(--ink-2));
   }

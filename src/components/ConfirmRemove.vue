@@ -182,8 +182,34 @@ function confirm() {
   transform: translateY(110%);
 }
 
+/* ---------- compact height (phone held sideways) ----------
+   Still an action sheet: bottom-anchored, centred at a limited width, clear of the
+   notch and home indicator. If the screen is too short it scrolls instead of
+   clipping the title off the top (auto margin, not flex-end alignment). */
+@media (max-height: 539.98px) {
+  .overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px max(8px, var(--safe-l), var(--safe-r)) calc(8px + var(--safe-b));
+  }
+  .sheet {
+    max-width: 400px;
+    margin-top: auto;
+  }
+}
+@media (max-height: 299.98px) {
+  .action {
+    height: 48px;
+    font-size: 18px;
+  }
+  .msg {
+    padding: 10px 16px;
+  }
+}
+
 /* ---------- desktop: centered alert ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .overlay {
     align-items: center;
     padding: 16px;

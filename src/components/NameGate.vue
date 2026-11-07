@@ -219,8 +219,67 @@ input:focus {
   from { transform: translateY(100%); }
 }
 
+/* ---------- compact height (phone held sideways) ----------
+   With the keyboard up only ~150–200px are left, so drop the big icon, pull the
+   field and the button up to the top, float Cancel beside the title (like a nav
+   bar) and let the card scroll if it still doesn't fit. */
+@media (max-height: 539.98px) {
+  .card {
+    position: relative;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: calc(var(--safe-t) + 8px);
+  }
+  .nav {
+    position: absolute;
+    top: calc(var(--safe-t) + 2px);
+    left: max(8px, var(--safe-l));
+    z-index: 1;
+    padding: 0;
+  }
+  .content {
+    flex: none;
+    padding: 6px max(24px, var(--safe-l), var(--safe-r)) 0;
+  }
+  .note {
+    display: none;
+  }
+  h1 {
+    margin-bottom: 4px;
+    font-size: 22px;
+    line-height: 28px;
+  }
+  .sub {
+    max-width: 560px;
+    margin-bottom: 14px;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+  input {
+    height: 44px;
+  }
+  .err {
+    margin-top: 4px;
+  }
+  .actions {
+    padding: 10px max(24px, var(--safe-l), var(--safe-r)) 0;
+  }
+  .actions .btn {
+    min-height: 44px;
+  }
+}
+/* keyboard up in landscape: keep just title, field and button */
+@media (max-height: 299.98px) {
+  .sub {
+    display: none;
+  }
+  h1 {
+    margin-bottom: 10px;
+  }
+}
+
 /* ---------- desktop: centered form sheet ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .overlay {
     align-items: center;
     justify-content: center;

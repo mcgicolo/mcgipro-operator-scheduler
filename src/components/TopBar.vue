@@ -24,6 +24,11 @@ const status = computed(() => {
   return { cls: 'off', label: 'Connecting…' }
 })
 
+// Compact height (phone held sideways): like iOS, no large title. The nav bar shows the
+// inline title (plus a month/status subtitle) from the start. Desktop needs
+// min-height 540px, so compact height always means the phone layout.
+const compactMq = typeof matchMedia === 'function' ? matchMedia('(max-height: 539.98px)') : null
+
 // Large title → inline title, and segmented-control scroll spy (iOS behaviour).
 let raf = 0
 function onScroll() {
@@ -32,7 +37,9 @@ function onScroll() {
     raf = 0
     const h1 = largeTitle.value?.querySelector('h1')
     const navBottom = document.querySelector('.navbar')?.getBoundingClientRect().bottom ?? 0
-    collapsed.value = !!h1 && h1.getBoundingClientRect().bottom <= navBottom
+    // Compact height hides the large title, so the bars only take on their material
+    // background once content scrolls under them.
+    collapsed.value = compactMq?.matches ? scrollY > 0 : !!h1 && h1.getBoundingClientRect().bottom <= navBottom
     const seg = document.querySelector('.segbar')?.getBoundingClientRect().bottom ?? 0
     let current = groups.value[0]?.id ?? null
     for (const g of groups.value) {
@@ -65,6 +72,8 @@ function layoutTitle() {
 watch(title, () => nextTick(layoutTitle))
 onMounted(() => {
   addEventListener('scroll', onScroll, { passive: true })
+  // Rotating switches between the large-title and compact layouts without a scroll.
+  addEventListener('resize', onScroll)
   onScroll()
   layoutTitle()
   if (typeof ResizeObserver === 'function') {
@@ -75,6 +84,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   removeEventListener('scroll', onScroll)
+  removeEventListener('resize', onScroll)
   navObserver?.disconnect()
   document.documentElement.style.removeProperty('--nav-w')
 })
@@ -111,7 +121,10 @@ async function copy() {
       </svg>
       <span class="nick">{{ state.nickname || 'Set name' }}</span>
     </button>
-    <span class="inline-title" aria-hidden="true">{{ title }}</span>
+    <span class="inline-title" aria-hidden="true">
+      <span class="it-main">{{ title }}</span>
+      <span class="it-sub" :class="status.cls">{{ state.month }}<span class="it-sep">·</span><i />{{ status.label }}</span>
+    </span>
     <span class="status" :class="status.cls"><i aria-hidden="true" />{{ status.label }}</span>
     <span class="right">
     <ThemeSwitch />
@@ -170,7 +183,8 @@ async function copy() {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: calc(var(--nav-h) + var(--safe-t));
-  padding: var(--safe-t) 8px 0;
+  /* Material stays edge to edge; the buttons clear a landscape notch / Dynamic Island. */
+  padding: var(--safe-t) max(8px, var(--safe-r)) 0 max(8px, var(--safe-l));
   background: var(--bg-grouped);
   transition: background 0.2s;
 }
@@ -229,22 +243,30 @@ async function copy() {
   grid-column: 2;
   grid-row: 1;
   /* keep both side columns at least two 44pt buttons wide (88px) */
-  max-width: calc(100vw - 16px - 2 * 88px - 16px);
+  max-width: calc(100vw - max(8px, var(--safe-l)) - max(8px, var(--safe-r)) - 2 * 88px - 16px);
   margin-inline: 8px;
-  overflow: hidden;
   font-size: 17px;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: center;
   opacity: 0;
   transition: opacity 0.2s;
+}
+.it-main,
+.it-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.it-sub {
+  display: none;
 }
 .collapsed .inline-title {
   opacity: 1;
 }
 
 .large {
-  padding: 2px 16px 8px;
+  padding: 2px max(16px, var(--safe-r)) 8px max(16px, var(--safe-l));
 }
 h1 {
   margin: 0;
@@ -279,7 +301,8 @@ h1 {
   font-size: 13px;
 }
 .status-inline i,
-.status i {
+.status i,
+.it-sub i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -296,7 +319,7 @@ h1 {
   position: sticky;
   top: calc(var(--nav-h) + var(--safe-t));
   z-index: 20;
-  padding: 6px 16px 10px;
+  padding: 6px max(16px, var(--safe-r)) 10px max(16px, var(--safe-l));
   background: var(--bg-grouped);
   transition: background 0.2s, box-shadow 0.2s;
 }
@@ -340,7 +363,7 @@ h1 {
   z-index: 90;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l));
   background: rgba(0, 0, 0, 0.35);
 }
 .card {
@@ -348,6 +371,9 @@ h1 {
   flex-direction: column;
   gap: 10px;
   width: min(520px, 100%);
+  /* Fit short (landscape) viewports: the textarea gives up height first. */
+  max-height: 100%;
+  min-height: 0;
   padding: 20px;
   border-radius: 14px;
   background: var(--bg-elevated);
@@ -363,6 +389,8 @@ h1 {
   font-size: 15px;
 }
 textarea {
+  flex: 1 1 auto;
+  min-height: 64px;
   width: 100%;
   padding: 10px;
   border: 0;
@@ -373,8 +401,65 @@ textarea {
   resize: vertical;
 }
 
+/* ---------- compact height (phone held sideways) ----------
+   iOS drops large titles in compact height: the bar shows the inline title from the
+   start, with the month/status as a subtitle, and the bars get a little shorter so
+   the first duty row clears the tray on a ~370px-tall viewport. Desktop needs
+   min-height 540px, so this only ever applies to the phone layout. */
+@media (max-height: 539.98px) {
+  .navbar {
+    height: calc(38px + var(--safe-t));
+  }
+  .nav-btn {
+    height: 38px;
+  }
+  .inline-title {
+    opacity: 1;
+  }
+  .it-main {
+    font-size: 15px;
+    line-height: 18px;
+  }
+  .it-sub {
+    display: block;
+    color: var(--label-2);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 14px;
+  }
+  .it-sub i {
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: 1px;
+    width: 6px;
+    height: 6px;
+  }
+  .it-sep {
+    margin: 0 5px;
+  }
+  /* Still read by screen readers (the inline title is aria-hidden). */
+  .large {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .segbar {
+    top: calc(38px + var(--safe-t));
+    padding-top: 2px;
+    padding-bottom: 6px;
+  }
+  .segmented button {
+    height: 24px;
+  }
+}
+
 /* ---------- desktop: Miro-style centered title, actions top-right ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .navbar,
   .navbar.collapsed {
     position: absolute;
@@ -466,7 +551,7 @@ textarea {
     white-space: pre;
   }
 }
-@media (min-width: 1200px) {
+@media (min-width: 1200px) and (min-height: 540px) {
   /* Centered title with a symmetric reserve, while it fits on one line (titleFits). */
   .large.centered {
     text-align: center;
@@ -478,12 +563,12 @@ textarea {
     justify-content: center;
   }
 }
-@media (min-width: 768px) and (max-width: 1199.98px) {
+@media (min-width: 768px) and (min-height: 540px) and (max-width: 1199.98px) {
   .instr {
     display: none;
   }
 }
-@media (min-width: 768px) and (max-width: 899.98px) {
+@media (min-width: 768px) and (min-height: 540px) and (max-width: 899.98px) {
   /* Icon-only copy button (aria-label/title keep it named). */
   .copy {
     width: 40px;

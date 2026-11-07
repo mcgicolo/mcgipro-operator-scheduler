@@ -351,8 +351,39 @@ section {
   from { transform: translateY(100%); }
 }
 
+/* ---------- compact height (phone held sideways) ----------
+   iOS keeps a page sheet at a readable width, centred, rather than stretching it
+   across the whole landscape screen. Symmetric side padding keeps it centred on the
+   screen and clear of the notch / Dynamic Island on whichever side it is. */
+@media (max-height: 539.98px) {
+  .overlay {
+    padding: calc(var(--safe-t) + 8px) max(var(--safe-l), var(--safe-r)) 0;
+  }
+  .sheet {
+    width: min(600px, 100%);
+  }
+  .nav {
+    height: 48px;
+    padding-top: 4px;
+  }
+  .scroll {
+    padding-bottom: calc(16px + var(--safe-b));
+  }
+  .hero {
+    margin-bottom: 18px;
+    padding: 10px 14px;
+  }
+  .note {
+    width: 48px;
+    height: 48px;
+  }
+  section {
+    margin-bottom: 22px;
+  }
+}
+
 /* ---------- desktop: centered form sheet ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .overlay {
     align-items: center;
     padding: 24px;

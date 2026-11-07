@@ -152,8 +152,25 @@ function remove() {
   background: #636366;
 }
 
+/* Compact height (phone held sideways): smaller placed notes so a duty row fits between
+   the nav and the tray. (Tray notes are sized by OperatorsPalette.) */
+@media (max-height: 539.98px) {
+  .v-chip {
+    width: 64px;
+    height: 64px;
+    padding: 4px;
+    border-radius: 12px;
+    font-size: 11.5px;
+  }
+  /* ✕ keeps a 44×44 hit area, pushed out past the corner so it covers less of the smaller
+     note (a press near the middle should pick the note up, not hit ✕). */
+  .remove::before {
+    inset: -14px -14px -6px -6px;
+  }
+}
+
 /* ---------- desktop: Miro-like square stickies ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .sticky {
     display: flex;
     box-shadow: var(--sticky-shadow);
@@ -201,7 +218,7 @@ function remove() {
     background: var(--live);
   }
 }
-@media (min-width: 768px) and (hover: none) {
+@media (min-width: 768px) and (min-height: 540px) and (hover: none) {
   .remove {
     opacity: 1;
     transform: none;

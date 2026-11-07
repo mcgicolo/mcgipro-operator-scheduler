@@ -72,7 +72,8 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
   gap: 10px;
   width: 100%;
   min-height: 52px;
-  padding: 14px 12px 4px 16px;
+  /* content clears the notch / rounded corners when held sideways; background stays edge-to-edge */
+  padding: 14px max(12px, var(--safe-r)) 4px max(16px, var(--safe-l));
   border: 0;
   background: none;
   text-align: left;
@@ -123,15 +124,26 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
 .list {
   display: flex;
   gap: 10px;
-  padding: 8px 16px 14px;
+  --pad-l: max(16px, var(--safe-l));
+  --pad-r: max(16px, var(--safe-r));
+  padding: 8px var(--pad-r) 14px var(--pad-l);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
-  scroll-padding: 0 16px;
+  scroll-padding: 0 var(--pad-r) 0 var(--pad-l);
   scrollbar-width: none;
   cursor: grab;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 28px), transparent);
-  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 28px), transparent);
+  /* Edge fades are measured from where the notes start/end (the padding edge), so the first
+     note is never faded and the notch side stays clean. With no inset this is 0→14px / -28px→100%. */
+  --fade: linear-gradient(
+    90deg,
+    transparent calc(var(--pad-l) - 16px),
+    #000 calc(var(--pad-l) - 2px),
+    #000 calc(100% - var(--pad-r) - 12px),
+    transparent calc(100% - var(--pad-r) + 16px)
+  );
+  -webkit-mask-image: var(--fade);
+  mask-image: var(--fade);
 }
 .list::-webkit-scrollbar {
   display: none;
@@ -156,7 +168,7 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
   mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
 }
 /* Expanded sheet never grows past the screen: header + a list that fills the rest */
-@media (max-width: 767.98px) {
+@media (max-width: 767.98px), (max-height: 539.98px) {
   .palette.expanded {
     display: flex;
     flex-direction: column;
@@ -165,6 +177,50 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
   }
   .expanded .head {
     flex: 0 0 auto;
+  }
+}
+/* Compact height (phone held sideways): the collapsed tray fits var(--tray-h) (118px):
+   44px head (title + hint on one line) + 4 + 62px notes + 8. */
+@media (max-height: 539.98px) {
+  .head {
+    min-height: 44px;
+    padding-top: 8px;
+    padding-bottom: 0;
+  }
+  .grab {
+    top: 4px;
+  }
+  .titles {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .titles strong {
+    flex: 0 0 auto;
+  }
+  .hint {
+    min-width: 0;
+  }
+  .list {
+    gap: 8px;
+    padding-top: 4px;
+    padding-bottom: 8px;
+  }
+  .list :deep(.v-palette) {
+    width: 62px;
+    height: 62px;
+    padding: 4px;
+    border-radius: 12px;
+    font-size: 11px;
+  }
+  /* Expanded: a wide, short screen — more columns, and the list takes all the height
+     the sheet has left under its header instead of stopping at 60%. */
+  .expanded .list {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 10px 8px;
+    max-height: none;
+    padding-top: 6px;
+    padding-bottom: 28px; /* = the bottom fade, so the last row ends fully opaque */
   }
 }
 /* Expanded grid: vertical swipes scroll; long-press picks a name up */
@@ -176,7 +232,7 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
 }
 
 /* ---------- desktop: Miro side panel ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .palette {
     position: sticky;
     top: 16px;

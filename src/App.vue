@@ -150,7 +150,8 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
 
 /* ---------- mobile (base): iOS inset-grouped list ---------- */
 .board {
-  padding: 8px 16px calc(var(--tray-h) + var(--safe-b) + 28px);
+  /* Side insets clear a landscape notch / Dynamic Island (0 in portrait). */
+  padding: 8px max(16px, var(--safe-r)) calc(var(--tray-h) + var(--safe-b) + 28px) max(16px, var(--safe-l));
 }
 .intro {
   margin: 0 16px 22px;
@@ -174,20 +175,35 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   background: var(--bg-cell);
 }
 
+/* Compact height (phone held sideways; desktop needs min-height 540px): TopBar drops the
+   large title and shortens its bars (38px nav + 36px segmented bar), so match the
+   scroll offset and tighten the intro so the first duty row clears the tray. */
+@media (max-height: 539.98px) {
+  .board {
+    padding-top: 6px;
+  }
+  .intro {
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .group {
+    scroll-margin-top: calc(38px + 36px + var(--safe-t) + 10px);
+  }
+}
+
 
 /* iOS-style HUD pill, above the tray */
 .toasts {
   position: fixed;
-  left: 50%;
+  /* Spans the safe area (clear of a landscape notch); pills center inside it. */
+  right: max(16px, var(--safe-r));
+  left: max(16px, var(--safe-l));
   bottom: calc(var(--tray-h) + var(--safe-b) + 14px);
   z-index: 150;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  transform: translateX(-50%);
   pointer-events: none;
 }
 .toast {
@@ -238,7 +254,7 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
 }
 
 /* ---------- desktop: Miro layout (palette left, 9-column grid) ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .board {
     display: flex;
     align-items: flex-start;

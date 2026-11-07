@@ -81,7 +81,7 @@ const isDark = computed(() => theme.value === 'dark')
 }
 /* Phones: the 51pt track doesn't fit an iOS nav bar beside a centered title, so
    collapse to a plain 44pt bar-button showing the current mode (sun / moon). */
-@media (max-width: 767.98px) {
+@media (max-width: 767.98px), (max-height: 539.98px) {
   .switch,
   .switch.dark {
     width: 44px;

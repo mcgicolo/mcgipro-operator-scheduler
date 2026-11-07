@@ -49,6 +49,8 @@
   --tray-h: 158px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
@@ -149,7 +151,7 @@ body {
   overscroll-behavior-y: none;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   body {
     font-size: 15px;
     letter-spacing: normal;
@@ -219,4 +221,14 @@ html.dragging * {
   20%, 80% { transform: translateX(4px); }
   30%, 50%, 70% { transform: translateX(-6px); }
   40%, 60% { transform: translateX(6px); }
+}
+
+/* Compact height (phone held sideways): the phone layout, with the notch side
+   padded and a shorter tray. Components key off the same media query:
+   (max-width: 767.98px), (max-height: 539.98px) = phone layout
+   (max-height: 539.98px)                        = compact height (landscape) */
+@media (max-height: 539.98px) {
+  :root {
+    --tray-h: 118px;
+  }
 }

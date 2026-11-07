@@ -38,8 +38,9 @@ const hot = computed(() => drag.over?.kind === 'remove')
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* exactly the collapsed tray (var(--tray-h) is 118px in compact height); content clears the notch */
   height: calc(var(--tray-h) + var(--safe-b));
-  padding-bottom: var(--safe-b);
+  padding: 0 max(16px, var(--safe-r)) var(--safe-b) max(16px, var(--safe-l));
   border-radius: 14px 14px 0 0;
   background: var(--material);
   backdrop-filter: saturate(1.8) blur(24px);
@@ -59,6 +60,13 @@ const hot = computed(() => drag.over?.kind === 'remove')
   border-color: var(--danger);
   color: #fff;
 }
+/* Compact height: icon beside the label so it reads well in the shorter zone */
+@media (max-height: 539.98px) {
+  .trash {
+    flex-direction: row;
+    gap: 10px;
+  }
+}
 .trash-enter-active,
 .trash-leave-active {
   transition: opacity 0.15s, translate 0.15s;
@@ -70,7 +78,7 @@ const hot = computed(() => drag.over?.kind === 'remove')
 }
 
 /* ---------- desktop: floating pill ---------- */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 540px) {
   .trash {
     left: 50%;
     right: auto;
