@@ -1,0 +1,219 @@
+/* =========================================================================
+   Tokens
+   Mobile follows Apple's Human Interface Guidelines (system colors, SF type
+   scale, inset grouped lists, materials). Desktop keeps the Miro board look.
+   ========================================================================= */
+:root {
+  color-scheme: light dark;
+
+  /* iOS system colors (light) */
+  --ios-red: #ff3b30;
+  --ios-blue: #007aff;
+  --ios-green: #34c759;
+  --ios-orange: #ff9500;
+  --label: #000000;
+  --label-2: rgba(60, 60, 67, 0.6);
+  --label-3: rgba(60, 60, 67, 0.3);
+  --separator: rgba(60, 60, 67, 0.29);
+  --fill: rgba(118, 118, 128, 0.12); /* tertiary system fill */
+  --fill-2: rgba(118, 118, 128, 0.2);
+  --bg-grouped: #f2f2f7;
+  --bg-cell: #ffffff;
+  --bg-elevated: #ffffff;
+  --material: rgba(249, 249, 249, 0.82); /* bar material */
+  --material-thick: rgba(242, 242, 247, 0.9);
+  --tint: var(--ios-blue);
+  --danger: var(--ios-red);
+  --tint-live: rgba(255, 59, 48, 0.12);
+  --tint-playback: rgba(0, 122, 255, 0.12);
+  --sticky-ink: #1c1c1e;
+
+  /* Miro board (desktop) */
+  --live: #e5484d;
+  --playback: #3b82f6;
+  --col-bg: #f7f7f9;
+  --col-border: #c9ccd6;
+  --palette-bg: #fff9db;
+  --palette-head: #f5c518;
+  --canvas: #f2f2f4;
+  --grid-line: rgba(0, 0, 0, 0.045);
+  --ink: #1a1a1f;
+  --ink-2: #5b5d68;
+  --surface: #ffffff;
+  --sticky-shadow: 0 1px 1px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.1);
+
+  /* Layout */
+  --nav-h: 44px;
+  --seg-h: 48px;
+  --tray-h: 158px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Dark tokens: follow the system unless the user picked a theme (data-theme on <html>). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ios-red: #ff453a;
+    --ios-blue: #0a84ff;
+    --ios-green: #30d158;
+    --ios-orange: #ff9f0a;
+    --label: #ffffff;
+    --label-2: rgba(235, 235, 245, 0.6);
+    --label-3: rgba(235, 235, 245, 0.3);
+    --separator: rgba(84, 84, 88, 0.6);
+    --fill: rgba(118, 118, 128, 0.24);
+    --fill-2: rgba(118, 118, 128, 0.32);
+    --bg-grouped: #000000;
+    --bg-cell: #1c1c1e;
+    --bg-elevated: #2c2c2e;
+    --material: rgba(29, 29, 31, 0.8);
+    --material-thick: rgba(28, 28, 30, 0.9);
+    --tint-live: rgba(255, 69, 58, 0.2);
+    --tint-playback: rgba(10, 132, 255, 0.2);
+
+    --col-bg: #1c1c1e;
+    --col-border: #3a3a3c;
+    --palette-bg: #2a2716;
+    --canvas: #111113;
+    --grid-line: rgba(255, 255, 255, 0.05);
+    --ink: #f2f2f7;
+    --ink-2: #a1a1aa;
+    --surface: #1c1c1e;
+  
+  }
+}
+:root[data-theme='dark'] {
+  --ios-red: #ff453a;
+  --ios-blue: #0a84ff;
+  --ios-green: #30d158;
+  --ios-orange: #ff9f0a;
+  --label: #ffffff;
+  --label-2: rgba(235, 235, 245, 0.6);
+  --label-3: rgba(235, 235, 245, 0.3);
+  --separator: rgba(84, 84, 88, 0.6);
+  --fill: rgba(118, 118, 128, 0.24);
+  --fill-2: rgba(118, 118, 128, 0.32);
+  --bg-grouped: #000000;
+  --bg-cell: #1c1c1e;
+  --bg-elevated: #2c2c2e;
+  --material: rgba(29, 29, 31, 0.8);
+  --material-thick: rgba(28, 28, 30, 0.9);
+  --tint-live: rgba(255, 69, 58, 0.2);
+  --tint-playback: rgba(10, 132, 255, 0.2);
+
+  --col-bg: #1c1c1e;
+  --col-border: #3a3a3c;
+  --palette-bg: #2a2716;
+  --canvas: #111113;
+  --grid-line: rgba(255, 255, 255, 0.05);
+  --ink: #f2f2f7;
+  --ink-2: #a1a1aa;
+  --surface: #1c1c1e;
+
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.29;
+  letter-spacing: -0.022em;
+  color: var(--label);
+  background: var(--bg-grouped);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 15px;
+    letter-spacing: normal;
+    color: var(--ink);
+    background-color: var(--canvas);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+html.dragging,
+html.dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* iOS filled / plain buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--fill);
+  color: var(--tint);
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.btn:active {
+  opacity: 0.6;
+}
+.btn.primary {
+  background: var(--tint);
+  color: #fff;
+}
+.btn.danger {
+  color: var(--danger);
+}
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.btn:focus-visible,
+.sticky:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--tint) 55%, transparent);
+  outline-offset: 2px;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}

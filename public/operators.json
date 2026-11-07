@@ -1,0 +1,15 @@
+{
+  "operators": [
+    { "id": "cdfa075c-b809-4ed9-88f7-4c1dfe4a47ab", "name": "Andrei Dacanay",      "color": "#FFF9B1" },
+    { "id": "16519ebb-5f04-44b0-982c-4ec4dbef1778", "name": "Elij Cañaveral",      "color": "#D5F692" },
+    { "id": "e579cd80-338e-4a1a-a87e-0dcdc41a50e9", "name": "Emmanuel Callo",      "color": "#A6CCF5" },
+    { "id": "6e3530fc-5968-45a5-ad7c-5cadf80c2c2c", "name": "Heinz Carl Rabanera", "color": "#FFCEE0" },
+    { "id": "1cb98932-35a8-48ef-9882-c64a30146925", "name": "Heinz Kyle Rabanera", "color": "#FF9D48" },
+    { "id": "ffb8a2a7-4ac6-4e37-b249-e66a38253d5f", "name": "John Lloyd Reyes",    "color": "#67C6C0" },
+    { "id": "26cfca4a-782b-4fb5-b5a0-29a1b0d62d1b", "name": "Jonathan Cañaveral",  "color": "#F5D128" },
+    { "id": "0f955962-d1d5-4c42-8108-257d000c8829", "name": "Julienne Medina",     "color": "#C9DF56" },
+    { "id": "d63f069b-0014-43c8-9490-4fa267b6f3c9", "name": "Michael Garcia",      "color": "#C6A2D2" },
+    { "id": "2b4dea26-5817-4814-b056-bb4387635006", "name": "Rick Allan Raya",     "color": "#EA94BB" },
+    { "id": "31c67ffc-f09b-48db-ba79-bc1c5fa30bf6", "name": "Victor Toledo",       "color": "#F5F6F8" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "board-demo",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite --port 5179 --strictPort"],
+      "port": 5179
+    },
+    {
+      "name": "board",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5180", "--strictPort"],
+      "port": 5180
+    }
+  ]
+}
