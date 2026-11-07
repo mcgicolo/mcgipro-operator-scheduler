@@ -17,15 +17,57 @@ const duty = computed(() => {
 watch(row, (r) => {
   if (state.confirmRemoveId && !r) state.confirmRemoveId = null
 })
+
+// Focus management: move focus into the alert on open (Cancel = safe default for a
+// destructive alert) and hand it back to whatever opened it on close.
+let opener: HTMLElement | null = null
+let openerScheduleId: string | null = null
+let openerAssignmentId = ''
+// The template ref is cleared as soon as v-if flips, while the leave transition keeps
+// the (focused) alert in the DOM — so remember the element itself.
+let dialogEl: HTMLElement | null = null
+
 watch(
   () => state.confirmRemoveId,
-  async (id) => {
-    if (id) {
+  async (id, prev) => {
+    if (id && !prev) {
+      const active = document.activeElement
+      opener = active instanceof HTMLElement && active !== document.body ? active : null
+      openerAssignmentId = id
+      openerScheduleId = state.assignments[id]?.schedule_id ?? null
       await nextTick()
+      dialogEl = cancelBtn.value?.closest<HTMLElement>('[role="alertdialog"]') ?? null
       cancelBtn.value?.focus()
+    } else if (!id && prev) {
+      const target = opener
+      const scheduleId = openerScheduleId
+      const dialog = dialogEl
+      const assignmentId = openerAssignmentId
+      opener = openerScheduleId = dialogEl = null
+      await nextTick()
+      restoreFocus(target, assignmentId, scheduleId, dialog)
     }
   },
 )
+
+function restoreFocus(target: HTMLElement | null, assignmentId: string, scheduleId: string | null, dialog: HTMLElement | null) {
+  // Something else (e.g. a sheet) already took focus deliberately — leave it.
+  const active = document.activeElement
+  if (active && active !== document.body && !dialog?.contains(active)) return
+  // Cancelled: the opener is still there. (After a removal it may linger in the DOM
+  // for its leave animation, so go by the data, not by isConnected alone.)
+  if (state.assignments[assignmentId] && target?.isConnected) {
+    target.focus({ preventScroll: true })
+    if (document.activeElement === target) return
+  }
+  // Opener is gone (the sticky was removed): fall back to the next sticky in that duty.
+  if (!scheduleId) return
+  const duty = document.querySelector<HTMLElement>(`[data-drop="schedule:${CSS.escape(scheduleId)}"]`)
+  const next = [...(duty?.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])') ?? [])].find(
+    (el) => !el.closest('[class*="-leave-"]') && !(target && (el.contains(target) || target.contains(el))),
+  )
+  next?.focus({ preventScroll: true })
+}
 
 function cancel() {
   state.confirmRemoveId = null

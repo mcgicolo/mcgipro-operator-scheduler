@@ -79,6 +79,39 @@ const isDark = computed(() => theme.value === 'dark')
   width: 16px;
   height: 16px;
 }
+/* Phones: the 51pt track doesn't fit an iOS nav bar beside a centered title, so
+   collapse to a plain 44pt bar-button showing the current mode (sun / moon). */
+@media (max-width: 767.98px) {
+  .switch,
+  .switch.dark {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: none;
+  }
+  .switch::before {
+    content: none;
+  }
+  .knob,
+  .dark .knob {
+    inset: 0;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--tint);
+    transform: none;
+    transition: none;
+  }
+  .knob svg {
+    width: 22px;
+    height: 22px;
+  }
+  .switch:active {
+    opacity: 0.4;
+  }
+}
 .switch:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--tint) 55%, transparent);
   outline-offset: 2px;

@@ -66,6 +66,7 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
         >
           <GroupHeader
             :name="g.name"
+            :short="g.short"
             :color="g.color"
             :filled="covered(g.schedules.map((s) => s.id))"
             :total="g.schedules.length"
@@ -220,6 +221,22 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   transform: translateY(12px) scale(0.96);
 }
 
+/* Scroll hint for the desktop .groups scroller (animatable so a scroll timeline can drive it). */
+@property --groups-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes groups-fade {
+  0%,
+  85% {
+    --groups-fade: 48px;
+  }
+  100% {
+    --groups-fade: 0px;
+  }
+}
+
 /* ---------- desktop: Miro layout (palette left, 9-column grid) ---------- */
 @media (min-width: 768px) {
   .board {
@@ -238,6 +255,16 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
     gap: 14px;
     overflow-x: auto;
     padding-bottom: 12px;
+    /* Right-edge fade while more columns are hidden off to the right (see @supports below). */
+    -webkit-mask-image: linear-gradient(to left, transparent, #000 var(--groups-fade));
+    mask-image: linear-gradient(to left, transparent, #000 var(--groups-fade));
+  }
+  @supports (animation-timeline: scroll()) {
+    .groups {
+      /* Only active when .groups actually overflows; fades out as you reach the end. */
+      animation: groups-fade linear both;
+      animation-timeline: scroll(self inline);
+    }
   }
   .group {
     flex: 1 1 0;
@@ -245,7 +272,7 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   }
   .cols {
     flex-direction: row;
-    gap: 10px;
+    gap: 8px;
     overflow: visible;
     border-radius: 0;
     background: none;

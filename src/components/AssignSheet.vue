@@ -14,6 +14,7 @@ import {
   state,
 } from '../store/board'
 import { formatTime, relativeTime, scheduleLabel } from '../utils/format'
+import GatheringIcon from './GatheringIcon.vue'
 
 export type SheetTarget = { kind: 'operator'; operatorId: string } | { kind: 'assignment'; assignmentId: string }
 
@@ -90,7 +91,7 @@ function moveTo(scheduleId: string) {
         <!-- Operator: checklist -->
         <template v-if="target.kind === 'operator'">
           <section v-for="g in groups" :key="g.id">
-            <h3>{{ g.name }}</h3>
+            <h3><GatheringIcon :short="g.short" :color="g.color" :size="22" /><span>{{ g.name }}</span></h3>
             <div class="list">
               <button
                 v-for="s in g.schedules"
@@ -117,7 +118,7 @@ function moveTo(scheduleId: string) {
         <!-- Placed chip: move / remove -->
         <template v-else-if="assignment">
           <section v-for="g in groups" :key="g.id">
-            <h3>Move to · {{ g.name }}</h3>
+            <h3><GatheringIcon :short="g.short" :color="g.color" :size="22" /><span>Move to · {{ g.name }}</span></h3>
             <div class="list">
               <button
                 v-for="s in g.schedules"
@@ -251,6 +252,9 @@ function moveTo(scheduleId: string) {
   font-size: 15px;
 }
 h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   padding: 0 16px 7px;
   color: var(--label-2);

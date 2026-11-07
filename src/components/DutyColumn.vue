@@ -205,7 +205,7 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
     --accent: var(--playback);
     --soft: #eaf2ff;
     flex: 1 1 0;
-    min-width: 118px;
+    min-width: 100px;
     max-width: 170px;
     padding: 0;
     background: none;
@@ -247,13 +247,19 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
   }
   .mode {
     font-weight: 700;
+    text-transform: uppercase;
   }
   .body {
     flex: 1;
     align-items: flex-start;
     align-content: flex-start;
     gap: 6px;
-    min-height: max(420px, calc(100vh - 230px));
+    /* Fill to the viewport bottom without scrolling the page. 276px = column-body top
+       (209px, measured at 768–1920px wide) + .groups/.board bottom padding (12 + 40px)
+       + 15px headroom for a classic (non-overlay) horizontal scrollbar.
+       Re-measure if the desktop top bar / group header height changes. */
+    min-height: max(320px, calc(100vh - 276px));
+    min-height: max(320px, calc(100dvh - 276px));
     padding: 8px 6px;
     background: var(--col-bg);
     border: 1px solid var(--col-border);
@@ -275,6 +281,17 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
   .dup .body {
     background: var(--col-bg);
     box-shadow: inset 0 0 0 2px #9a9ca8;
+  }
+}
+/* Dark mode: #3a3a3c column borders vanish on the dark canvas; lift them toward --ink-2. */
+@media (min-width: 768px) and (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .body {
+    border-color: color-mix(in srgb, var(--col-border) 72%, var(--ink-2));
+  }
+}
+@media (min-width: 768px) {
+  :root[data-theme='dark'] .body {
+    border-color: color-mix(in srgb, var(--col-border) 72%, var(--ink-2));
   }
 }
 </style>

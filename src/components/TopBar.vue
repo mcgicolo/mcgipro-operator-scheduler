@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { buildScheduleText, groups, state, toast } from '../store/board'
 import ThemeSwitch from './ThemeSwitch.vue'
 
@@ -8,6 +8,9 @@ const emit = defineEmits<{ editName: [] }>()
 const fallbackText = ref<string | null>(null)
 const textarea = ref<HTMLTextAreaElement>()
 const largeTitle = ref<HTMLElement>()
+const navbar = ref<HTMLElement>()
+const titleText = ref<HTMLElement>()
+const titleFits = ref(true)
 const collapsed = ref(false)
 const activeGroup = ref<string | null>(null)
 
@@ -42,11 +45,39 @@ function onScroll() {
     activeGroup.value = current
   })
 }
+// Desktop: the action cluster floats top-right over the title, so publish its real
+// width as --nav-w and let the title reserve exactly that much room. On wide screens
+// the title is centered (same reserve on both sides) only while it still fits on
+// one line; otherwise it falls back to the left-aligned layout.
+let navObserver: ResizeObserver | null = null
+function layoutTitle() {
+  const navW = Math.ceil(navbar.value?.getBoundingClientRect().width ?? 0)
+  document.documentElement.style.setProperty('--nav-w', `${navW}px`)
+  const large = largeTitle.value
+  const span = titleText.value
+  if (!large || !span) return
+  span.style.whiteSpace = 'nowrap'
+  const textW = span.getBoundingClientRect().width
+  span.style.whiteSpace = ''
+  const inner = large.clientWidth - 40 // .large has 20px side padding on desktop
+  titleFits.value = inner - 2 * (navW + 40) >= textW
+}
+watch(title, () => nextTick(layoutTitle))
 onMounted(() => {
   addEventListener('scroll', onScroll, { passive: true })
   onScroll()
+  layoutTitle()
+  if (typeof ResizeObserver === 'function') {
+    navObserver = new ResizeObserver(layoutTitle)
+    if (navbar.value) navObserver.observe(navbar.value)
+    if (largeTitle.value) navObserver.observe(largeTitle.value)
+  }
 })
-onBeforeUnmount(() => removeEventListener('scroll', onScroll))
+onBeforeUnmount(() => {
+  removeEventListener('scroll', onScroll)
+  navObserver?.disconnect()
+  document.documentElement.style.removeProperty('--nav-w')
+})
 
 function jump(id: string) {
   activeGroup.value = id
@@ -64,12 +95,14 @@ async function copy() {
     await nextTick()
     textarea.value?.focus()
     textarea.value?.select()
+    // select() scrolls the caret (end of text) into view; show the top instead.
+    if (textarea.value) textarea.value.scrollTop = 0
   }
 }
 </script>
 
 <template>
-  <header class="navbar" :class="{ collapsed }" data-top-overlay>
+  <header ref="navbar" class="navbar" :class="{ collapsed }" data-top-overlay>
     <button type="button" class="nav-btn me" :title="`You are ${state.nickname} — tap to change`" @click="emit('editName')">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -82,7 +115,7 @@ async function copy() {
     <span class="status" :class="status.cls"><i aria-hidden="true" />{{ status.label }}</span>
     <span class="right">
     <ThemeSwitch />
-    <button type="button" class="nav-btn copy" aria-label="Copy schedule as text" @click="copy">
+    <button type="button" class="nav-btn copy" aria-label="Copy schedule as text" title="Copy schedule as text" @click="copy">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="8.5" y="8.5" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" />
         <path d="M15.5 5.5V5a2 2 0 0 0-2-2H5.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
@@ -92,8 +125,8 @@ async function copy() {
     </span>
   </header>
 
-  <div ref="largeTitle" class="large">
-    <h1>{{ title }}</h1>
+  <div ref="largeTitle" class="large" :class="{ centered: titleFits }">
+    <h1><span ref="titleText">{{ title }}</span></h1>
     <p class="sub">
       <span class="month">Month of: <strong>{{ state.month }}</strong></span>
       <span v-if="state.instructions" class="instr"> • {{ state.instructions }}</span>
@@ -134,7 +167,7 @@ async function copy() {
   top: 0;
   z-index: 21;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: calc(var(--nav-h) + var(--safe-t));
   padding: var(--safe-t) 8px 0;
@@ -168,9 +201,12 @@ async function copy() {
 }
 .me {
   justify-self: start;
+  min-width: 0;
   max-width: 100%;
+  padding: 0 6px;
 }
 .nick {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -180,7 +216,7 @@ async function copy() {
   justify-self: end;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
 }
 .copy {
   justify-content: center;
@@ -192,7 +228,9 @@ async function copy() {
 .inline-title {
   grid-column: 2;
   grid-row: 1;
-  max-width: 52vw;
+  /* keep both side columns at least two 44pt buttons wide (88px) */
+  max-width: calc(100vw - 16px - 2 * 88px - 16px);
+  margin-inline: 8px;
   overflow: hidden;
   font-size: 17px;
   font-weight: 600;
@@ -291,7 +329,7 @@ h1 {
   transition: background 0.2s, box-shadow 0.2s;
 }
 .segmented button.on {
-  background: var(--bg-elevated);
+  background: var(--seg-on);
   font-weight: 600;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
 }
@@ -376,8 +414,14 @@ textarea {
     background: var(--surface);
     color: var(--ink);
   }
+  .me {
+    padding: 0 16px 0 10px;
+  }
   .nick {
-    max-width: 140px;
+    max-width: 120px;
+  }
+  .right {
+    gap: 10px;
   }
   .nav-btn svg {
     width: 20px;
@@ -392,7 +436,13 @@ textarea {
   }
   .large {
     padding: 26px 20px 18px;
-    text-align: center;
+    text-align: left;
+  }
+  /* Reserve the floating action cluster's real width (--nav-w, kept current by a
+     ResizeObserver). Only the h1 shares the navbar's row; the subtitle line sits
+     below it and keeps the full width. */
+  h1 {
+    padding-right: calc(var(--nav-w, 420px) + 24px);
   }
   h1 {
     font-size: 30px;
@@ -402,7 +452,7 @@ textarea {
     text-transform: uppercase;
   }
   .sub {
-    justify-content: center;
+    justify-content: flex-start;
     gap: 0;
     margin-top: 6px;
     color: var(--ink-2);
@@ -416,15 +466,30 @@ textarea {
     white-space: pre;
   }
 }
+@media (min-width: 1200px) {
+  /* Centered title with a symmetric reserve, while it fits on one line (titleFits). */
+  .large.centered {
+    text-align: center;
+  }
+  .large.centered h1 {
+    padding-inline: calc(var(--nav-w, 420px) + 40px);
+  }
+  .large.centered .sub {
+    justify-content: center;
+  }
+}
 @media (min-width: 768px) and (max-width: 1199.98px) {
-  .large {
-    padding-right: 420px;
-    text-align: left;
-  }
-  .sub {
-    justify-content: flex-start;
-  }
   .instr {
+    display: none;
+  }
+}
+@media (min-width: 768px) and (max-width: 899.98px) {
+  /* Icon-only copy button (aria-label/title keep it named). */
+  .copy {
+    width: 40px;
+    padding: 0;
+  }
+  .copy-label {
     display: none;
   }
 }

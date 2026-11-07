@@ -49,8 +49,8 @@ function remove() {
     :aria-label="assignment ? `${operator.name}, ${info}. Tap for options.` : `${operator.name}. Tap to assign duties.`"
     v-on="handlers"
     @click="onClick"
-    @keydown.enter.prevent="emit('tap')"
-    @keydown.space.prevent="emit('tap')"
+    @keydown.enter.self.prevent="emit('tap')"
+    @keydown.space.self.prevent="emit('tap')"
   >
     <span class="name">{{ operator.name }}</span>
     <button
@@ -172,11 +172,6 @@ function remove() {
     font-weight: 400;
     letter-spacing: normal;
     white-space: normal;
-  }
-  .v-chip {
-    width: 48px;
-    height: 48px;
-    font-size: 9px;
   }
   .remove {
     top: -7px;

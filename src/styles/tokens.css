@@ -27,6 +27,7 @@
   --tint-live: rgba(255, 59, 48, 0.12);
   --tint-playback: rgba(0, 122, 255, 0.12);
   --sticky-ink: #1c1c1e;
+  --seg-on: #ffffff; /* selected segment of a segmented control */
 
   /* Miro board (desktop) */
   --live: #e5484d;
@@ -73,6 +74,7 @@
     --material-thick: rgba(28, 28, 30, 0.9);
     --tint-live: rgba(255, 69, 58, 0.2);
     --tint-playback: rgba(10, 132, 255, 0.2);
+    --seg-on: #636366;
 
     --col-bg: #1c1c1e;
     --col-border: #3a3a3c;
@@ -103,6 +105,7 @@
   --material-thick: rgba(28, 28, 30, 0.9);
   --tint-live: rgba(255, 69, 58, 0.2);
   --tint-playback: rgba(10, 132, 255, 0.2);
+  --seg-on: #636366;
 
   --col-bg: #1c1c1e;
   --col-border: #3a3a3c;
