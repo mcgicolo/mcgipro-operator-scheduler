@@ -41,11 +41,16 @@ const isFresh = (e: HistoryEntry) => e.id > newestAtOpen
 
 // ---------------------------------------------------------------- labels
 
-/** schedule id → its gathering and a short "Live · Sun 8:00 AM" label. */
+const titleCase = (s: string) => s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase())
+
+/** schedule id → its gathering (name in title case: config names are often all caps) and a
+ *  short "Live · Sun 8:00 AM" label. */
 const places = computed(() => {
   const m = new Map<string, { g: (typeof groups.value)[number]; label: string }>()
-  for (const g of groups.value)
-    for (const s of g.schedules) m.set(s.id, { g, label: `${s.mode === 'LIVE' ? 'Live' : 'Playback'} · ${s.day} ${formatTime(s.time)}` })
+  for (const g of groups.value) {
+    const gg = { ...g, name: titleCase(g.name) }
+    for (const s of g.schedules) m.set(s.id, { g: gg, label: `${s.mode === 'LIVE' ? 'Live' : 'Playback'} · ${s.day} ${formatTime(s.time)}` })
+  }
   return m
 })
 const place = (id: string | null) => (id ? places.value.get(id) : undefined)
@@ -291,10 +296,9 @@ function clearSearch() {
                       </span>
                       <span class="row-what">
                         <span class="verb" :class="e.action">{{ VERB[e.action] }}</span>
-                        <template v-if="place(target(e))">
-                          <GatheringIcon :short="place(target(e))!.g.short" :color="place(target(e))!.g.color" :size="17" />
-                          <span class="place">{{ place(target(e))!.label }}</span>
-                        </template>
+                        <span v-if="place(target(e))" class="place">
+                          <GatheringIcon :short="place(target(e))!.g.short" :color="place(target(e))!.g.color" :size="17" />{{ place(target(e))!.label }}
+                        </span>
                         <span v-else class="place gone">a removed duty</span>
                       </span>
                       <span class="row-by">
@@ -742,18 +746,21 @@ time {
   color: var(--label-2);
   font-size: 15px;
 }
+/* Wraps rather than truncates: the duty's time is the part people look for. */
 .row-what {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   min-width: 0;
   font-size: 15px;
-  white-space: nowrap;
+  line-height: 1.3;
+}
+.row-what :deep(.g-icon) {
+  margin: 0 5px 0 1px;
+  vertical-align: -3px;
+}
+.verb + .place {
+  margin-left: 4px;
 }
 .row-what .place {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .verb {
   font-weight: 600;
@@ -949,6 +956,8 @@ dd small {
   font-size: 13px;
 }
 dd time {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--label);
 }
 .action-cell {

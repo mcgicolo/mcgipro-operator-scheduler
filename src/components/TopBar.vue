@@ -367,7 +367,10 @@ async function copy() {
   top: 0;
   z-index: 21;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Like UIKit: the title gets the room between the leading and trailing items (centred in
+     it), so three trailing buttons don't squeeze it to a few letters; the name button can
+     take at most 40% of the bar. */
+  grid-template-columns: fit-content(40%) minmax(0, 1fr) auto;
   align-items: center;
   height: calc(var(--nav-h) + var(--safe-t));
   /* Material stays edge to edge; the buttons clear a landscape notch / Dynamic Island. */
@@ -456,9 +459,8 @@ async function copy() {
 .inline-title {
   grid-column: 2;
   grid-row: 1;
-  /* keep both side columns at least two 44pt buttons wide (88px) */
-  max-width: calc(100vw - max(8px, var(--safe-l)) - max(8px, var(--safe-r)) - 2 * var(--right-w, 140px) - 16px);
-  margin-inline: 8px;
+  min-width: 0;
+  margin-inline: 4px;
   font-size: 17px;
   font-weight: 600;
   text-align: center;
@@ -758,8 +760,18 @@ textarea {
     background: var(--surface);
     color: var(--ink);
   }
+  /* Badge on the pill's top-right corner, clear of the label. */
+  .history {
+    position: relative;
+  }
+  .h-icon {
+    position: static;
+  }
   .h-badge {
-    border-color: var(--surface);
+    top: -6px;
+    right: -6px;
+    left: auto;
+    border-color: var(--canvas);
   }
   .copy-label,
   .history-label {

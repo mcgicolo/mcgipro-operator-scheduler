@@ -140,7 +140,9 @@ const tiles = ['fill', 'blue', 'green', 'fill', 'orange', 'red', 'fill', 'blue',
   height: 280px;
   padding: 5px;
   border-radius: 26px;
-  background: #1c1c1e;
+  /* Near-black frame in light mode; a lighter graphite in dark mode (--label is white
+     there), so the frame still stands out against the black sheet and screen. */
+  background: color-mix(in srgb, var(--label) 22%, #1c1c1e);
   box-shadow: 0 0 0 1px var(--separator);
 }
 .screen {
