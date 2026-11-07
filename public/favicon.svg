@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fafafb"/>
+      <stop offset="1" stop-color="#e9eaef"/>
+    </linearGradient>
+    <pattern id="dots" width="64" height="64" patternUnits="userSpaceOnUse" x="0" y="0">
+      <circle cx="32" cy="32" r="5" fill="rgba(26,26,31,0.07)"/>
+    </pattern>
+    <filter id="colShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#1a1a1f" flood-opacity="0.12"/>
+    </filter>
+    <filter id="stickyShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#1a1a1f" flood-opacity="0.16"/>
+    </filter>
+    <filter id="liftShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="26" stdDeviation="22" flood-color="#1a1a1f" flood-opacity="0.3"/>
+    </filter>
+  </defs><rect width="1024" height="1024" rx="230" fill="url(#bg)"/><rect width="1024" height="1024" rx="230" fill="url(#dots)"/>
+    
+    <clipPath id="clip-l"><rect x="164" y="212" width="330" height="600" rx="46"/></clipPath>
+    <g filter="url(#colShadow)">
+      <rect x="164" y="212" width="330" height="600" rx="46" fill="#ffffff"/>
+    </g>
+    <g clip-path="url(#clip-l)">
+      <rect x="164" y="212" width="330" height="100" fill="#c62a2f"/>
+    </g>
+    <rect x="164" y="212" width="330" height="600" rx="46" fill="none" stroke="#d3d6de" stroke-width="5"/>
+    <circle cx="222" cy="262" r="17" fill="#fff"/>
+    <rect x="260" y="250" width="140" height="24" rx="12" fill="#fff" opacity="0.92"/>
+    
+    <clipPath id="clip-r"><rect x="530" y="212" width="330" height="600" rx="46"/></clipPath>
+    <g filter="url(#colShadow)">
+      <rect x="530" y="212" width="330" height="600" rx="46" fill="#ffffff"/>
+    </g>
+    <g clip-path="url(#clip-r)">
+      <rect x="530" y="212" width="330" height="100" fill="#2563eb"/>
+    </g>
+    <rect x="530" y="212" width="330" height="600" rx="46" fill="none" stroke="#d3d6de" stroke-width="5"/>
+    <path d="M 575 244 L 607 262 L 575 280 Z" fill="#fff" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
+    <rect x="626" y="250" width="140" height="24" rx="12" fill="#fff" opacity="0.92"/>
+    
+    <g filter="url(#stickyShadow)">
+      <rect x="204" y="352" width="250" height="160" rx="16" fill="#f5d128"/>
+      <rect x="204" y="498" width="250" height="14" rx="7" fill="#e0bb12" opacity="0.55"/>
+      <rect x="204" y="352" width="250" height="160" rx="16" fill="none" stroke="#e0bb12" stroke-width="3" opacity="0.6"/>
+    </g>
+    <rect x="234" y="394" width="150" height="24" rx="12" fill="#1c1c1e" opacity="0.62"/>
+    <rect x="234" y="440" width="95" height="24" rx="12" fill="#1c1c1e" opacity="0.28"/>
+    
+    <g filter="url(#stickyShadow)">
+      <rect x="204" y="536" width="250" height="160" rx="16" fill="#f5d128"/>
+      <rect x="204" y="682" width="250" height="14" rx="7" fill="#e0bb12" opacity="0.55"/>
+      <rect x="204" y="536" width="250" height="160" rx="16" fill="none" stroke="#e0bb12" stroke-width="3" opacity="0.6"/>
+    </g>
+    <rect x="234" y="578" width="150" height="24" rx="12" fill="#1c1c1e" opacity="0.62"/>
+    <rect x="234" y="624" width="95" height="24" rx="12" fill="#1c1c1e" opacity="0.28"/>
+    
+    <g filter="url(#stickyShadow)">
+      <rect x="570" y="352" width="250" height="160" rx="16" fill="#f5d128"/>
+      <rect x="570" y="498" width="250" height="14" rx="7" fill="#e0bb12" opacity="0.55"/>
+      <rect x="570" y="352" width="250" height="160" rx="16" fill="none" stroke="#e0bb12" stroke-width="3" opacity="0.6"/>
+    </g>
+    <rect x="600" y="394" width="150" height="24" rx="12" fill="#1c1c1e" opacity="0.62"/>
+    <rect x="600" y="440" width="95" height="24" rx="12" fill="#1c1c1e" opacity="0.28"/>
+    <rect x="570" y="536" width="250" height="160" rx="16" fill="none"
+          stroke="#b9bdc9" stroke-width="6" stroke-dasharray="20 14"/>
+    <g transform="rotate(7 735 658)">
+      
+    <g filter="url(#liftShadow)">
+      <rect x="610" y="578" width="250" height="160" rx="16" fill="#f5d128"/>
+      <rect x="610" y="724" width="250" height="14" rx="7" fill="#e0bb12" opacity="0.55"/>
+      <rect x="610" y="578" width="250" height="160" rx="16" fill="none" stroke="#e0bb12" stroke-width="3" opacity="0.6"/>
+    </g>
+    <rect x="640" y="620" width="150" height="24" rx="12" fill="#1c1c1e" opacity="0.62"/>
+    <rect x="640" y="666" width="95" height="24" rx="12" fill="#1c1c1e" opacity="0.28"/>
+    </g></svg>
