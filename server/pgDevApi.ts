@@ -6,7 +6,7 @@
 //   POST   <base>api/assignments        → 201 | 400 invalid | 409 duplicate
 //   PATCH  <base>api/assignments/:id    → 204 | 400 invalid | 404 not found
 //   DELETE <base>api/assignments/:id    → 204
-//   GET    <base>api/events             → text/event-stream of {op,row|id}
+//   GET    <base>api/events             → text/event-stream of {op,row|id} (+ `event: ping` every 15 s)
 //
 // Errors are JSON {code: 'duplicate' | 'not_found' | 'other', message}; 503 means
 // the database is unreachable or not set up (the message says how to fix it).
@@ -231,7 +231,9 @@ export function pgDevApi(databaseUrl: string | undefined, base: string): Plugin 
           })
           res.write('retry: 1500\n: connected\n\n')
           clients.add(res)
-          const ping = setInterval(() => res.write(': ping\n\n'), 25_000)
+          // A named event (not a `:` comment) so the client's EventSource sees it: no ping for
+          // ~35 s tells the client the stream is dead and it reconnects (src/api/postgres.ts).
+          const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 15_000)
           req.on('close', () => {
             clearInterval(ping)
             clients.delete(res)

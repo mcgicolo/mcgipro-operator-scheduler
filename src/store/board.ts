@@ -83,8 +83,30 @@ export const state = reactive<State>({
 })
 
 let backend: Backend | null = null
-/** Rows with an in-flight optimistic change; a resync must not overwrite them. */
-const pending = new Map<string, Assignment | null>()
+
+/** A realtime event for a row, held back while we have a save of that row in flight. */
+type RemoteEvent = { kind: 'upsert'; row: Assignment } | { kind: 'delete' }
+
+/** Book-keeping for a row with in-flight optimistic saves. */
+interface Pending {
+  /** Saves still in flight (a fast user can issue a second move before the first one settles). */
+  inFlight: number
+  /** Sequence number of the most recently issued save. */
+  lastSeq: number
+  /** What the server holds as far as we know: the row before the first in-flight save, then the
+   *  result of the latest-issued save that succeeded. Restored when the latest save fails. */
+  confirmed: Assignment | null
+  confirmedSeq: number
+  lastFailed: boolean
+  /** The server said the row no longer exists (a move hit 404), or our own remove succeeded. */
+  gone: boolean
+  /** Latest realtime event for the row received while saves were in flight (events arrive in commit order). */
+  remote?: RemoteEvent
+}
+
+/** Rows with an in-flight optimistic change; realtime events and resyncs must not overwrite them. */
+const pending = new Map<string, Pending>()
+let saveSeq = 0
 
 // ---------------------------------------------------------------- derived
 
@@ -195,13 +217,17 @@ export async function init() {
     backend = await createBackend()
     state.backendKind = backend.kind
     backend.subscribe({
+      // While a save of the row is in flight, keep the optimistic version on screen but remember
+      // the newest server event; it is applied when the save settles (see commit()).
       onUpsert(row) {
-        if (pending.has(row.id)) return
-        state.assignments[row.id] = row
+        const p = pending.get(row.id)
+        if (p) p.remote = { kind: 'upsert', row }
+        else state.assignments[row.id] = row
       },
       onDelete(id) {
-        if (pending.has(id)) return
-        delete state.assignments[id]
+        const p = pending.get(id)
+        if (p) p.remote = { kind: 'delete' }
+        else delete state.assignments[id]
       },
       onReconnect: resync,
       onStatus(s) {
@@ -237,18 +263,52 @@ function throttled(): boolean {
   return false
 }
 
-async function commit(id: string, before: Assignment | null, run: () => Promise<void>, failMsg: string) {
-  pending.set(id, before)
+/**
+ * Runs one optimistic save of row `id`. `before` is the row as it was before this change (null for
+ * an add); the optimistic version is already in state. When the last in-flight save of the row
+ * settles, the board is reconciled with the server:
+ *   1. if the row is gone on the server (a move got not_found, or our remove succeeded) → drop it;
+ *   2. else a realtime event received meanwhile is the newest server truth → apply it;
+ *   3. else, if the latest save failed (duplicate, network, …) → roll back to the last confirmed row;
+ *   4. else the optimistic version is what the server has → keep it.
+ */
+async function commit(id: string, before: Assignment | null, run: () => Promise<void>, failMsg: string, isRemove = false) {
+  const seq = ++saveSeq
+  let p = pending.get(id)
+  if (!p) {
+    p = { inFlight: 0, lastSeq: 0, confirmed: before, confirmedSeq: 0, lastFailed: false, gone: false }
+    pending.set(id, p)
+  }
+  p.inFlight++
+  p.lastSeq = seq
+  const after = isRemove ? null : state.assignments[id] ? { ...state.assignments[id] } : null
+  let failed = false
   try {
     await run()
+    if (isRemove) p.gone = true
+    if (seq > p.confirmedSeq) {
+      p.confirmed = after
+      p.confirmedSeq = seq
+    }
   } catch (e) {
-    // Roll back to the pre-change row.
-    if (before) state.assignments[id] = before
-    else delete state.assignments[id]
+    failed = true
     const err = e as BackendError
+    if (err.code === 'not_found') p.gone = true
     toast(err.code === 'duplicate' ? 'Already in this duty' : `${failMsg}: ${err.message}`, 'error')
-  } finally {
-    pending.delete(id)
+  }
+  if (seq === p.lastSeq) p.lastFailed = failed
+  if (--p.inFlight > 0) return
+  pending.delete(id)
+
+  if (p.gone) {
+    // Ids are never reused, so a deleted row stays deleted (even if an older upsert was remembered).
+    delete state.assignments[id]
+  } else if (p.remote) {
+    if (p.remote.kind === 'upsert') state.assignments[id] = p.remote.row
+    else delete state.assignments[id]
+  } else if (p.lastFailed) {
+    if (p.confirmed) state.assignments[id] = p.confirmed
+    else delete state.assignments[id]
   }
 }
 
@@ -309,7 +369,7 @@ export function removeAssignment(id: string): ChangeResult {
   const before = { ...cur }
   delete state.assignments[id]
   const b = backend
-  void commit(id, before, () => b.remove(id), 'Could not remove')
+  void commit(id, before, () => b.remove(id), 'Could not remove', true)
   toast(`Removed ${operatorsById.value.get(before.operator_id)?.name ?? 'sticky'}`)
   return 'ok'
 }

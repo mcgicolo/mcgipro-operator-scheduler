@@ -20,8 +20,13 @@ const hot = computed(() => drag.over?.kind === 'remove')
           stroke-linejoin="round"
         />
       </svg>
-      <span>{{ hot ? 'Release to remove' : 'Drop here to remove' }}</span>
+      <span class="label" :class="{ 'sr-only': hot }">{{ hot ? 'Release to remove' : 'Drop here to remove' }}</span>
     </div>
+  </Transition>
+  <!-- Hot: the dragged sticky sits right over the zone, so the label moves to a chip on
+       the zone's top edge, stacked above the drag ghost (z-index 200) — always readable. -->
+  <Transition name="chip">
+    <div v-if="visible && hot" class="chip" aria-hidden="true">Release to remove</div>
   </Transition>
 </template>
 
@@ -59,6 +64,44 @@ const hot = computed(() => drag.over?.kind === 'remove')
   background: var(--danger);
   border-color: var(--danger);
   color: #fff;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.chip {
+  position: fixed;
+  left: 50%;
+  /* straddles the tray cover's top edge */
+  bottom: calc(var(--tray-h) + var(--safe-b) - 15px);
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 4px 14px rgba(0, 0, 0, 0.22);
+  pointer-events: none; /* never the drop target under the pointer */
+}
+.chip-enter-active,
+.chip-leave-active {
+  transition: opacity 0.12s, scale 0.12s;
+}
+.chip-enter-from,
+.chip-leave-to {
+  opacity: 0;
+  scale: 0.9;
 }
 /* Compact height: icon beside the label so it reads well in the shorter zone */
 @media (max-height: 539.98px) {
@@ -102,6 +145,10 @@ const hot = computed(() => drag.over?.kind === 'remove')
   .hot {
     background: var(--danger);
     transform: translateX(-50%) scale(1.04);
+  }
+  .chip {
+    bottom: calc(24px + 64px - 15px);
+    font-size: 13px;
   }
 }
 </style>

@@ -6,32 +6,35 @@
 :root {
   color-scheme: light dark;
 
-  /* iOS system colors (light) */
-  --ios-red: #ff3b30;
-  --ios-blue: #007aff;
+  /* iOS system colors (light). Red/blue and the secondary/tertiary labels use Apple's
+     "Increase Contrast" variants so text in them meets WCAG AA (4.5:1) on cells, the
+     grouped background and fills. */
+  --ios-red: #d70015;
+  --ios-blue: #0062cc;
   --ios-green: #34c759;
   --ios-orange: #ff9500;
   --label: #000000;
-  --label-2: rgba(60, 60, 67, 0.6);
-  --label-3: rgba(60, 60, 67, 0.3);
+  --label-2: rgba(60, 60, 67, 0.8);
+  --label-3: rgba(60, 60, 67, 0.72);
   --separator: rgba(60, 60, 67, 0.29);
   --fill: rgba(118, 118, 128, 0.12); /* tertiary system fill */
   --fill-2: rgba(118, 118, 128, 0.2);
   --bg-grouped: #f2f2f7;
   --bg-cell: #ffffff;
   --bg-elevated: #ffffff;
-  --material: rgba(249, 249, 249, 0.82); /* bar material */
+  --material: rgba(249, 249, 249, 0.92); /* bar material (opaque enough that text behind doesn't read through) */
   --material-thick: rgba(242, 242, 247, 0.9);
-  --tint: var(--ios-blue);
-  --danger: var(--ios-red);
+  --tint: var(--ios-blue); /* tint as text */
+  --tint-fill: var(--ios-blue); /* background of filled buttons (white text) */
+  --danger: #c80010; /* a shade under --ios-red: 4.6+:1 even on the alert material over the dimmed board */
   --tint-live: rgba(255, 59, 48, 0.12);
   --tint-playback: rgba(0, 122, 255, 0.12);
   --sticky-ink: #1c1c1e;
   --seg-on: #ffffff; /* selected segment of a segmented control */
 
   /* Miro board (desktop) */
-  --live: #e5484d;
-  --playback: #3b82f6;
+  --live: #c62a2f; /* white 12px header text: 5.6:1 */
+  --playback: #2563eb; /* 5.2:1 */
   --col-bg: #f7f7f9;
   --col-border: #c9ccd6;
   --palette-bg: #fff9db;
@@ -64,15 +67,18 @@
     --ios-green: #30d158;
     --ios-orange: #ff9f0a;
     --label: #ffffff;
-    --label-2: rgba(235, 235, 245, 0.6);
-    --label-3: rgba(235, 235, 245, 0.3);
+    --label-2: rgba(235, 235, 245, 0.7);
+    --label-3: rgba(235, 235, 245, 0.55);
     --separator: rgba(84, 84, 88, 0.6);
     --fill: rgba(118, 118, 128, 0.24);
     --fill-2: rgba(118, 118, 128, 0.32);
     --bg-grouped: #000000;
     --bg-cell: #1c1c1e;
     --bg-elevated: #2c2c2e;
-    --material: rgba(29, 29, 31, 0.8);
+    --material: rgba(29, 29, 31, 0.92);
+    --tint: #409cff; /* increased-contrast blue: 4.9:1 on elevated surfaces */
+    --tint-fill: #0071e3; /* white on it: 4.7:1 (#0a84ff is only 3.65) */
+    --danger: var(--ios-red);
     --material-thick: rgba(28, 28, 30, 0.9);
     --tint-live: rgba(255, 69, 58, 0.2);
     --tint-playback: rgba(10, 132, 255, 0.2);
@@ -86,7 +92,6 @@
     --ink: #f2f2f7;
     --ink-2: #a1a1aa;
     --surface: #1c1c1e;
-  
   }
 }
 :root[data-theme='dark'] {
@@ -95,15 +100,18 @@
   --ios-green: #30d158;
   --ios-orange: #ff9f0a;
   --label: #ffffff;
-  --label-2: rgba(235, 235, 245, 0.6);
-  --label-3: rgba(235, 235, 245, 0.3);
+  --label-2: rgba(235, 235, 245, 0.7);
+  --label-3: rgba(235, 235, 245, 0.55);
   --separator: rgba(84, 84, 88, 0.6);
   --fill: rgba(118, 118, 128, 0.24);
   --fill-2: rgba(118, 118, 128, 0.32);
   --bg-grouped: #000000;
   --bg-cell: #1c1c1e;
   --bg-elevated: #2c2c2e;
-  --material: rgba(29, 29, 31, 0.8);
+  --material: rgba(29, 29, 31, 0.92);
+  --tint: #409cff;
+  --tint-fill: #0071e3;
+  --danger: var(--ios-red);
   --material-thick: rgba(28, 28, 30, 0.9);
   --tint-live: rgba(255, 69, 58, 0.2);
   --tint-playback: rgba(10, 132, 255, 0.2);
@@ -200,7 +208,7 @@ html.dragging * {
   opacity: 0.6;
 }
 .btn.primary {
-  background: var(--tint);
+  background: var(--tint-fill);
   color: #fff;
 }
 .btn.danger {
@@ -221,6 +229,21 @@ html.dragging * {
   20%, 80% { transform: translateX(4px); }
   30%, 50%, 70% { transform: translateX(-6px); }
   40%, 60% { transform: translateX(6px); }
+}
+
+/* Reduce Motion: no sheet slide-ups, pops, shakes or smooth scrolling. Durations go to
+   ~0 (not 'none') so animationend/transitionend handlers still fire. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Compact height (phone held sideways): the phone layout, with the notch side

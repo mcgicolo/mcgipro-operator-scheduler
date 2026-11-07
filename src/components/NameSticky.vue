@@ -39,20 +39,21 @@ function remove() {
 </script>
 
 <template>
-  <div
-    class="sticky"
-    :class="[`v-${variant}`, { lifted: isLifted }]"
-    :style="{ '--c': operator.color }"
-    role="button"
-    tabindex="0"
-    :title="assignment ? `${operator.name} — ${info}` : `${operator.name} — drag into a duty, or tap`"
-    :aria-label="assignment ? `${operator.name}, ${info}. Tap for options.` : `${operator.name}. Tap to assign duties.`"
-    v-on="handlers"
-    @click="onClick"
-    @keydown.enter.self.prevent="emit('tap')"
-    @keydown.space.self.prevent="emit('tap')"
-  >
-    <span class="name">{{ operator.name }}</span>
+  <!-- The note (drag source, visual) holds two sibling controls — the note's own button
+       and the ✕ — so the ✕ is never nested inside another interactive element. -->
+  <div class="sticky" :class="[`v-${variant}`, { lifted: isLifted }]" :style="{ '--c': operator.color }" v-on="handlers">
+    <div
+      class="face"
+      role="button"
+      tabindex="0"
+      :title="assignment ? `${operator.name} — ${info}` : `${operator.name} — drag into a duty, or tap`"
+      :aria-label="assignment ? `${operator.name}, ${info}. Tap for options.` : `${operator.name}. Tap to assign duties.`"
+      @click="onClick"
+      @keydown.enter.self.prevent="emit('tap')"
+      @keydown.space.self.prevent="emit('tap')"
+    >
+      <span class="name">{{ operator.name }}</span>
+    </div>
     <button
       v-if="assignment"
       type="button"
@@ -88,7 +89,6 @@ function remove() {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   cursor: grab;
-  outline: none;
   transition: transform 0.2s var(--ease-ios), opacity 0.15s ease, box-shadow 0.15s ease;
 }
 .sticky:active {
@@ -97,6 +97,27 @@ function remove() {
 .lifted {
   opacity: 0.25;
   transform: scale(0.95);
+}
+/* The faded original of a note being dragged doesn't offer ✕. */
+.lifted .remove {
+  visibility: hidden;
+}
+/* The note's button fills the note (padding / corners follow the variant). */
+.face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: inherit;
+  border-radius: inherit;
+  outline: none;
+}
+/* Keyboard focus ring: solid tint just outside the note, so it reads on every note
+   colour (it sits on the column / tray background) in light and dark. */
+.face:focus-visible {
+  outline: 3px solid var(--tint);
+  outline-offset: 2px;
 }
 .name {
   min-width: 0;

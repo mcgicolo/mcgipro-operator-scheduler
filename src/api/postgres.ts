@@ -33,27 +33,58 @@ export function createPostgresBackend(): Backend {
       let timer: ReturnType<typeof setTimeout> | undefined
       let delay = 1000
       let stopped = false
+      /** Last time anything (open, change, heartbeat) arrived on the stream. */
+      let lastSeen = Date.now()
+
+      const retryLater = () => {
+        clearTimeout(timer)
+        timer = setTimeout(connect, delay)
+        delay = Math.min(delay * 2, 10_000)
+      }
+
+      /** Drops the current stream (if any), shows "Reconnecting…" and opens a new one later. */
+      const restart = (now = false) => {
+        es?.close()
+        es = null
+        h.onStatus('offline')
+        if (now) {
+          delay = 1000
+          clearTimeout(timer)
+          connect()
+        } else retryLater()
+      }
 
       const connect = () => {
         if (stopped) return
+        clearTimeout(timer)
+        lastSeen = Date.now()
         const source = new EventSource(api + 'events')
         es = source
         source.onopen = () => {
+          if (es !== source) return
           delay = 1000
+          lastSeen = Date.now()
           h.onStatus('live')
           h.onReconnect() // resync after every (re)connect: changes may have been missed
         }
         source.onerror = () => {
+          if (es !== source) return
           h.onStatus('offline') // shown as "Reconnecting…"
           // On a dropped stream the browser retries by itself; on an HTTP error (e.g. 503
           // while the database is down) it gives up, so retry with backoff.
           if (source.readyState === EventSource.CLOSED) {
             source.close()
-            timer = setTimeout(connect, delay)
-            delay = Math.min(delay * 2, 10_000)
+            es = null
+            retryLater()
           }
         }
+        // The server sends `event: ping` every ~15 s, so a silent stream means a dead connection.
+        source.addEventListener('ping', () => {
+          if (es === source) lastSeen = Date.now()
+        })
         source.onmessage = (e) => {
+          if (es !== source) return
+          lastSeen = Date.now()
           let msg: { op: string; id?: string; row?: Assignment }
           try {
             msg = JSON.parse(e.data)
@@ -65,11 +96,25 @@ export function createPostgresBackend(): Backend {
         }
       }
 
+      // The device lost its network: the stream may look open for minutes, so say so right away
+      // and reconnect (→ onopen → resync) as soon as the network is back.
+      const onOffline = () => restart()
+      const onOnline = () => restart(true)
+      window.addEventListener('offline', onOffline)
+      window.addEventListener('online', onOnline)
+      // Heartbeat watchdog: nothing for 35 s (two missed pings) → the stream is dead, reconnect.
+      const watchdog = setInterval(() => {
+        if (es && es.readyState === EventSource.OPEN && Date.now() - lastSeen > 35_000) restart(true)
+      }, 5_000)
+
       h.onStatus('connecting')
       connect()
       return () => {
         stopped = true
         clearTimeout(timer)
+        clearInterval(watchdog)
+        window.removeEventListener('offline', onOffline)
+        window.removeEventListener('online', onOnline)
         es?.close()
       }
     },

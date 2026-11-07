@@ -45,7 +45,16 @@ export function setDropHandler(fn: DropHandler) {
 const LONG_PRESS_MS = 200
 const TOUCH_SLOP = 8
 const MOUSE_SLOP = 4
-const EDGE = 64
+const EDGE = 64 // horizontal grid auto-scroll zone, and the max vertical zone
+// The vertical auto-scroll zone scales with the band between the sticky top bar and
+// the bottom tray, so a short phone-landscape band still leaves room to aim at a duty.
+const EDGE_MIN = 24
+const EDGE_RATIO = 0.18
+// The pointer must rest in a zone this long before the page scrolls; the speed then
+// eases in over RAMP_MS (and with depth into the zone) to MAX_SPEED px per 60fps frame.
+const DWELL_MS = 300
+const RAMP_MS = 600
+const MAX_SPEED = 16
 
 let suppressClickUntil = 0
 /** Returns true if this click is the tail of a drag/swipe and should be ignored. */
@@ -119,10 +128,28 @@ function removeGhost() {
 
 let raf = 0
 const armed = { top: false, bottom: false }
+/** Which vertical zone the pointer is resting in, and since when (rAF time). */
+let zone: 'top' | 'bottom' | null = null
+let zoneSince = 0
+let lastFrame = 0
+let carry = 0 // sub-pixel scroll remainder
 
-function autoScrollLoop() {
+const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v))
+
+function resetAutoScroll() {
+  armed.top = false
+  armed.bottom = false
+  zone = null
+  zoneSince = 0
+  lastFrame = 0
+  carry = 0
+}
+
+function autoScrollLoop(now: number) {
   raf = 0
   if (!drag.active) return
+  const dt = lastFrame ? Math.min(now - lastFrame, 50) : 16.7
+  lastFrame = now
   const { x, y } = drag
   let top = 0
   document.querySelectorAll<HTMLElement>('[data-top-overlay]').forEach((el) => {
@@ -132,13 +159,36 @@ function autoScrollLoop() {
   const tray = document.querySelector<HTMLElement>('[data-bottom-overlay]')
   const bottom = tray && getComputedStyle(tray).position === 'fixed' ? tray.getBoundingClientRect().top : innerHeight
 
-  if (y > top + EDGE) armed.top = true
-  if (y < bottom - EDGE) armed.bottom = true
+  const edge = clamp(EDGE_MIN, (bottom - top) * EDGE_RATIO, EDGE)
+
+  if (y > top + edge) armed.top = true
+  if (y < bottom - edge) armed.bottom = true
+
+  let inZone: typeof zone = null
+  let depth = 0 // 0 at the inner border of the zone, 1 at the overlay edge
+  if (drag.over?.kind !== 'remove') {
+    if (armed.top && y < top + edge) {
+      inZone = 'top'
+      depth = clamp(0, (top + edge - y) / edge, 1)
+    } else if (armed.bottom && y > bottom - edge && y < bottom) {
+      inZone = 'bottom'
+      depth = clamp(0, (y - (bottom - edge)) / edge, 1)
+    }
+  }
+  if (inZone !== zone) {
+    zone = inZone
+    zoneSince = now
+    carry = 0
+  }
 
   let dy = 0
-  if (drag.over?.kind !== 'remove') {
-    if (armed.top && y < top + EDGE) dy = -Math.ceil((Math.min(EDGE, top + EDGE - y) / EDGE) * 16)
-    else if (armed.bottom && y > bottom - EDGE && y < bottom) dy = Math.ceil(((y - (bottom - EDGE)) / EDGE) * 16)
+  if (zone && now - zoneSince >= DWELL_MS) {
+    // Ease in (quadratic) so a brief rest near the edge only nudges the page.
+    const ramp = clamp(0.05, (now - zoneSince - DWELL_MS) / RAMP_MS, 1) ** 2
+    const speed = MAX_SPEED * (0.15 + 0.85 * depth * depth) * ramp // px per 60fps frame
+    carry += speed * (dt / 16.7) * (zone === 'top' ? -1 : 1)
+    dy = Math.trunc(carry)
+    carry -= dy
   }
   if (dy) window.scrollBy(0, dy)
 
@@ -161,8 +211,7 @@ function begin(p: DragPayload, src: HTMLElement, x: number, y: number) {
   drag.active = true
   drag.x = x
   drag.y = y
-  armed.top = false
-  armed.bottom = false
+  resetAutoScroll()
   makeGhost(src, x, y)
   drag.over = targetAt(x, y)
   document.documentElement.classList.add('dragging')

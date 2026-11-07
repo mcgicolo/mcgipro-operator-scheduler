@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { addAssignment, assignmentsBySchedule, groups, moveAssignment, requestRemove, state } from './store/board'
-import { setDropHandler } from './composables/useDrag'
+import { drag, setDropHandler } from './composables/useDrag'
 import TopBar from './components/TopBar.vue'
 import GroupHeader from './components/GroupHeader.vue'
 import DutyColumn from './components/DutyColumn.vue'
@@ -13,7 +13,38 @@ import ConfirmRemove from './components/ConfirmRemove.vue'
 
 const editingName = ref(false)
 const sheet = ref<SheetTarget | null>(null)
+const copyOpen = ref(false)
 const needsName = computed(() => state.phase === 'ready' && !state.nickname)
+/** Any modal open: everything outside it (bars, board, tray) is made inert. */
+const modalOpen = computed(
+  () => needsName.value || editingName.value || !!sheet.value || !!state.confirmRemoveId || copyOpen.value,
+)
+// While the remove zone is up, toasts move clear of it (desktop pill / phone tray cover).
+const trashUp = computed(() => drag.active && !!drag.payload?.assignmentId)
+
+// Focus return for the dialogs App opens with v-if (sheet, name edit). Capture the
+// opener synchronously, before the board turns inert; on close, hand focus back if
+// nothing else took it (the name edit falls back to the TopBar name button).
+function restoreTo(fallbackSel: string | null) {
+  let opener: HTMLElement | null = null
+  return (open: boolean) => {
+    if (open) {
+      const a = document.activeElement
+      opener = a instanceof HTMLElement && a !== document.body ? a : null
+      return
+    }
+    const target = opener
+    opener = null
+    nextTick(() => {
+      const a = document.activeElement
+      if (a && a !== document.body) return
+      const el = target?.isConnected ? target : fallbackSel ? document.querySelector<HTMLElement>(fallbackSel) : null
+      el?.focus({ preventScroll: true })
+    })
+  }
+}
+watch(() => !!sheet.value, restoreTo(null), { flush: 'sync' })
+watch(editingName, restoreTo('.navbar .nav-btn.me'), { flush: 'sync' })
 
 setDropHandler((p, t) => {
   if (!t) return 'none'
@@ -31,7 +62,7 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
 
 <template>
   <div v-if="state.phase === 'loading'" class="center">
-    <div class="spinner" aria-label="Loading" />
+    <div class="spinner" role="status" aria-label="Loading" />
   </div>
 
   <div v-else-if="state.phase === 'error'" class="center">
@@ -49,9 +80,9 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   </div>
 
   <template v-else>
-    <TopBar @edit-name="editingName = true" />
+    <TopBar :blocked="modalOpen" @edit-name="editingName = true" @copy-dialog="(open) => (copyOpen = open)" />
 
-    <main class="board" :inert="needsName || undefined">
+    <main class="board" :inert="modalOpen || undefined">
       <OperatorsPalette @operator-tap="(id) => (sheet = { kind: 'operator', operatorId: id })" />
 
       <p v-if="state.instructions" class="intro">{{ state.instructions }}</p>
@@ -61,7 +92,7 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
           :id="`group-${g.id}`"
           :key="g.id"
           class="group"
-          :style="{ flexGrow: g.schedules.length }"
+          :style="{ '--n': g.schedules.length }"
           :aria-label="g.name"
         >
           <GroupHeader
@@ -85,14 +116,13 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
 
     <TrashZone />
 
-
-    <AssignSheet v-if="sheet" :target="sheet" @close="sheet = null" />
+    <AssignSheet v-if="sheet" :target="sheet" :inert="state.confirmRemoveId ? true : undefined" @close="sheet = null" />
     <ConfirmRemove />
     <NameGate v-if="needsName" />
     <NameGate v-else-if="editingName" editing @close="editingName = false" />
   </template>
 
-  <div class="toasts" aria-live="polite">
+  <div class="toasts" :class="{ lifted: trashUp, behind: state.confirmRemoveId }" aria-live="polite">
     <TransitionGroup name="toast">
       <div v-for="t in state.toasts" :key="t.id" class="toast" :class="t.kind">
         <svg v-if="t.kind === 'error'" viewBox="0 0 24 24" aria-hidden="true">
@@ -150,8 +180,12 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
 
 /* ---------- mobile (base): iOS inset-grouped list ---------- */
 .board {
-  /* Side insets clear a landscape notch / Dynamic Island (0 in portrait). */
-  padding: 8px max(16px, var(--safe-r)) calc(var(--tray-h) + var(--safe-b) + 28px) max(16px, var(--safe-l));
+  /* Side insets clear a landscape notch / Dynamic Island (0 in portrait). On a wide but
+     short window (phone layout at >= 768px wide) the list is capped at --phone-max and
+     centred, like an iPad readable-width table; the bars stay edge to edge. */
+  --phone-max: 760px;
+  padding: 8px max(16px, var(--safe-r), calc((100% - var(--phone-max)) / 2)) calc(var(--tray-h) + var(--safe-b) + 28px)
+    max(16px, var(--safe-l), calc((100% - var(--phone-max)) / 2));
 }
 .intro {
   margin: 0 16px 22px;
@@ -175,6 +209,15 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   background: var(--bg-cell);
 }
 
+/* Phone layout: give the last section enough room below it that the segmented control's
+   jump (scrollIntoView, scroll-margin-top above) can bring it right under the bars.
+   min-height = viewport − sticky bars (scroll margin) − the board's bottom padding. */
+@media (max-width: 767.98px), (max-height: 539.98px) {
+  .group:last-child {
+    min-height: calc(100vh - var(--nav-h) - var(--seg-h) - var(--safe-t) - 12px - var(--tray-h) - var(--safe-b) - 28px);
+  }
+}
+
 /* Compact height (phone held sideways; desktop needs min-height 540px): TopBar drops the
    large title and shortens its bars (38px nav + 36px segmented bar), so match the
    scroll offset and tighten the intro so the first duty row clears the tray. */
@@ -188,6 +231,9 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   }
   .group {
     scroll-margin-top: calc(38px + 36px + var(--safe-t) + 10px);
+  }
+  .group:last-child {
+    min-height: calc(100vh - 38px - 36px - var(--safe-t) - 10px - var(--tray-h) - var(--safe-b) - 28px);
   }
 }
 
@@ -205,6 +251,15 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   align-items: center;
   gap: 8px;
   pointer-events: none;
+  transition: bottom 0.25s var(--ease-ios);
+}
+/* The remove confirmation sheet sits where the toasts do: let it cover them. */
+.toasts.behind {
+  z-index: 110;
+}
+/* Remove zone up: sit above its "Release to remove" chip (straddles the tray's top edge). */
+.toasts.lifted {
+  bottom: calc(var(--tray-h) + var(--safe-b) + 30px);
 }
 .toast {
   display: flex;
@@ -282,9 +337,26 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
       animation-timeline: scroll(self inline);
     }
   }
+  /* Groups share the row by column count, but never grow wider than their columns can
+     (--n columns at most --col-max each + the 8px .cols gaps), so a bar always ends with
+     its last column. Spare width on very wide screens centres the row (auto margins only
+     take positive free space, so an overflowing row still scrolls from its start). */
+  .groups {
+    --col-max: 170px;
+  }
   .group {
-    flex: 1 1 0;
+    flex: var(--n, 1) 1 0;
     min-width: min-content;
+    max-width: calc(var(--n, 1) * var(--col-max) + (var(--n, 1) - 1) * 8px);
+  }
+  .group:first-child {
+    margin-left: auto;
+  }
+  .group:last-child {
+    margin-right: auto;
+  }
+  .cols > :deep(.duty) {
+    max-width: var(--col-max);
   }
   .cols {
     flex-direction: row;
@@ -295,6 +367,10 @@ const covered = (ids: string[]) => ids.filter((id) => (assignmentsBySchedule.val
   }
   .toasts {
     bottom: 24px;
+  }
+  /* above the 64px remove pill and its label chip */
+  .toasts.lifted {
+    bottom: calc(24px + 64px + 28px);
   }
 }
 </style>

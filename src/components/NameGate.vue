@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { setNickname, state } from '../store/board'
 
 const props = defineProps<{ editing?: boolean }>()
@@ -15,7 +15,19 @@ const error = computed(() => {
   return ''
 })
 
+// Focus return: remember what had focus when the gate opened (the TopBar name button for
+// "Change Your Name") and give it back after Save / Cancel / Esc.
+const opened = document.activeElement
+const opener = opened instanceof HTMLElement && opened !== document.body ? opened : null
 onMounted(() => input.value?.focus())
+onUnmounted(() => {
+  nextTick(() => {
+    const a = document.activeElement
+    if (a && a !== document.body && a.isConnected) return // something else already took focus
+    const el = opener?.isConnected ? opener : props.editing ? document.querySelector<HTMLElement>('.navbar .nav-btn.me') : null
+    el?.focus({ preventScroll: true })
+  })
+})
 
 function submit() {
   touched.value = true
@@ -65,7 +77,7 @@ function submit() {
             </svg>
           </button>
         </label>
-        <p id="gate-err" class="err" :class="{ bad: touched && !!error }">{{ touched && error ? error : '2–30 characters' }}</p>
+        <p id="gate-err" class="err" aria-live="polite" :class="{ bad: touched && !!error }">{{ touched && error ? error : '2–30 characters' }}</p>
       </div>
       <div class="actions">
         <button type="submit" class="btn primary" :disabled="!!error">
@@ -164,8 +176,11 @@ input {
 input::placeholder {
   color: var(--label-3);
 }
+/* visible focus: a tint ring like a focused field on iPadOS with a keyboard
+   (transparent outline kept so Windows High Contrast still draws one) */
 input:focus {
-  outline: none;
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 2px var(--tint);
 }
 .clear {
   position: absolute;

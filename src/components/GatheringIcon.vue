@@ -19,7 +19,8 @@ defineProps<{ short: string; color: string; size?: number }>()
   width: var(--s);
   height: var(--s);
   border-radius: calc(var(--s) * 0.24);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--g) 78%, #fff) 0%, var(--g) 70%);
+  /* light top-left sheen kept subtle (6% white) so the white monogram stays ≥4.5:1 */
+  background: linear-gradient(160deg, color-mix(in srgb, var(--g) 94%, #fff) 0%, var(--g) 70%);
   box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15);
   color: #fff;
   font-family: var(--font-display);

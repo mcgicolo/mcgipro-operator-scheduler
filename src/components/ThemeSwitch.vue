@@ -67,7 +67,7 @@ const isDark = computed(() => theme.value === 'dark')
   height: 27px;
   border-radius: 50%;
   background: #fff;
-  color: #ff9f0a;
+  color: #c77700; /* amber sun: 3.5:1 on the white knob */
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06);
   transition: transform 0.3s var(--ease-ios);
 }

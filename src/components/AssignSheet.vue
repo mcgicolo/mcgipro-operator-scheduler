@@ -2,7 +2,7 @@
 // Tap fallback for drag & drop (iOS page sheet):
 //  - tap an operator in the tray  → checklist of duties (tap to add, tap again to remove)
 //  - tap a placed chip            → "Move to…" list + "Remove from This Duty"
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   addAssignment,
   findAssignment,
@@ -21,7 +21,35 @@ export type SheetTarget = { kind: 'operator'; operatorId: string } | { kind: 'as
 const props = defineProps<{ target: SheetTarget }>()
 const emit = defineEmits<{ close: [] }>()
 const panel = ref<HTMLElement>()
+
+// Focus return: remember what opened the sheet (captured during setup, before the board
+// behind turns inert) and hand focus back to it when the sheet closes (Done / Esc / scrim).
+const opened = document.activeElement
+const opener = opened instanceof HTMLElement && opened !== document.body ? opened : null
+let operatorName = ''
 onMounted(() => panel.value?.focus())
+onUnmounted(() => {
+  const name = operatorName
+  nextTick(() => {
+    const a = document.activeElement
+    if (a && a !== document.body && a.isConnected) return // something else already took focus
+    restoreTarget(name)?.focus({ preventScroll: true })
+  })
+})
+/** The opener if it is still on the page; otherwise (chip moved / removed) one of this
+ *  operator's notes: a placed chip, then the tray note; finally the first tray note. */
+function restoreTarget(name: string): HTMLElement | null {
+  if (opener?.isConnected && !opener.closest('[inert]')) return opener
+  const faces = (sel: string) => [...document.querySelectorAll<HTMLElement>(sel)]
+  const label = (el: HTMLElement) => el.getAttribute('aria-label') ?? ''
+  if (name) {
+    const chip = faces('.sticky.v-chip .face').find((el) => label(el).startsWith(`${name}, `))
+    if (chip) return chip
+    const note = faces('.sticky.v-palette .face').find((el) => label(el).startsWith(`${name}.`))
+    if (note) return note
+  }
+  return document.querySelector<HTMLElement>('.sticky.v-palette .face')
+}
 
 const assignment = computed(() =>
   props.target.kind === 'assignment' ? state.assignments[props.target.assignmentId] : undefined,
@@ -30,6 +58,7 @@ const operator = computed(() => {
   const id = props.target.kind === 'operator' ? props.target.operatorId : assignment.value?.operator_id
   return id ? operatorsById.value.get(id) : undefined
 })
+watch(operator, (op) => op && (operatorName = op.name), { immediate: true })
 const currentSchedule = computed(() => (assignment.value ? schedulesById.value.get(assignment.value.schedule_id) : undefined))
 const assignedCount = computed(() =>
   operator.value ? Object.values(state.assignments).filter((a) => a.operator_id === operator.value!.id).length : 0,
@@ -92,13 +121,13 @@ function moveTo(scheduleId: string) {
         <template v-if="target.kind === 'operator'">
           <section v-for="g in groups" :key="g.id">
             <h3><GatheringIcon :short="g.short" :color="g.color" :size="22" /><span>{{ g.name }}</span></h3>
-            <div class="list">
+            <div class="list" role="group" :aria-label="g.name">
               <button
                 v-for="s in g.schedules"
                 :key="s.id"
                 type="button"
                 class="cell"
-                role="menuitemcheckbox"
+                role="checkbox"
                 :aria-checked="!!findAssignment(operator.id, s.id)"
                 @click="toggle(s.id)"
               >

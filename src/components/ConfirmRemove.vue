@@ -63,10 +63,18 @@ function restoreFocus(target: HTMLElement | null, assignmentId: string, schedule
   // Opener is gone (the sticky was removed): fall back to the next sticky in that duty.
   if (!scheduleId) return
   const duty = document.querySelector<HTMLElement>(`[data-drop="schedule:${CSS.escape(scheduleId)}"]`)
-  const next = [...(duty?.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])') ?? [])].find(
+  if (!duty) return
+  const next = [...duty.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])')].find(
     (el) => !el.closest('[class*="-leave-"]') && !(target && (el.contains(target) || target.contains(el))),
   )
-  next?.focus({ preventScroll: true })
+  if (next) {
+    next.focus({ preventScroll: true })
+    return
+  }
+  // That was the duty's last note: land on the duty column itself (programmatically
+  // focusable only), so keyboard users stay where they were instead of on <body>.
+  if (!duty.hasAttribute('tabindex')) duty.setAttribute('tabindex', '-1')
+  duty.focus({ preventScroll: true })
 }
 
 function cancel() {
@@ -126,6 +134,9 @@ function confirm() {
 .msg {
   padding: 14px 16px;
   text-align: center;
+  /* No lone word ("PM.") on the last line. */
+  text-wrap: pretty;
+  text-wrap: balance;
 }
 .title {
   margin: 0;
@@ -161,8 +172,9 @@ function confirm() {
 }
 .cancel:focus-visible,
 .destructive:focus-visible {
-  outline: none;
-  background: var(--fill);
+  /* Keep the solid button background (nothing shows through) and draw a clear ring. */
+  outline: 3px solid var(--tint);
+  outline-offset: -3px;
 }
 
 .as-enter-active,

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { drag, swipeScroll } from '../composables/useDrag'
 import { state } from '../store/board'
 import NameSticky from './NameSticky.vue'
 
 const emit = defineEmits<{ operatorTap: [operatorId: string] }>()
 const expanded = ref(false)
+const listEl = ref<HTMLElement | null>(null)
+/** The collapsed (one-row) tray has more names than fit — only then is expanding useful. */
+const overflows = ref(true)
+const canExpand = computed(() => expanded.value || overflows.value)
 
 // Picking a name up from the expanded grid collapses the tray so the duties are visible.
 watch(
@@ -16,6 +20,55 @@ watch(
 )
 
 const removing = computed(() => drag.active && !!drag.payload?.assignmentId && drag.over?.kind === 'remove')
+
+function toggle() {
+  if (!canExpand.value) return
+  expanded.value = !expanded.value
+}
+
+/** Measured only while collapsed (the expanded grid scrolls vertically, so it says nothing). */
+function measure() {
+  const list = listEl.value
+  if (!list || expanded.value) return
+  overflows.value = list.scrollWidth > list.clientWidth + 1
+}
+
+/** Mouse wheel over the collapsed tray scrolls it sideways instead of scrolling the page. */
+function onWheel(e: WheelEvent) {
+  const list = listEl.value
+  if (!list || expanded.value || e.ctrlKey) return
+  if (list.scrollWidth <= list.clientWidth + 1) return
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? list.clientWidth : 1
+  list.scrollBy({ left: e.deltaY * unit })
+  e.preventDefault()
+}
+
+const desktopMq = typeof matchMedia === 'function' ? matchMedia('(min-width: 768px) and (min-height: 540px)') : null
+function onDesktopChange(e: MediaQueryListEvent) {
+  if (e.matches) expanded.value = false
+}
+
+let ro: ResizeObserver | null = null
+onMounted(() => {
+  const list = listEl.value
+  if (list) {
+    list.addEventListener('wheel', onWheel, { passive: false })
+    if (typeof ResizeObserver === 'function') {
+      ro = new ResizeObserver(measure)
+      ro.observe(list)
+    }
+  }
+  desktopMq?.addEventListener('change', onDesktopChange)
+  measure()
+})
+onBeforeUnmount(() => {
+  listEl.value?.removeEventListener('wheel', onWheel)
+  ro?.disconnect()
+  desktopMq?.removeEventListener('change', onDesktopChange)
+})
+// Names added/removed don't resize the list box itself; re-measure after collapsing too.
+watch([() => state.operators.length, expanded], () => nextTick(measure))
 </script>
 
 <template>
@@ -23,21 +76,23 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
     <button
       type="button"
       class="head"
-      :aria-expanded="expanded"
-      :aria-label="expanded ? 'Collapse operators' : 'Show all operators'"
-      @click="expanded = !expanded"
+      :class="{ fixed: !canExpand }"
+      :aria-expanded="canExpand ? expanded : undefined"
+      :aria-label="canExpand ? (expanded ? 'Collapse operators' : 'Show all operators') : undefined"
+      @click="toggle"
     >
       <span class="grab" aria-hidden="true" />
       <span class="titles">
         <strong>Operators</strong>
         <span class="hint desktop">Drag your name into a duty column. Drag it back here to remove it.</span>
-        <span class="hint mobile">{{ expanded ? 'Scroll to browse · hold a name to drag it' : 'Swipe to browse · drag a name up onto a duty' }}</span>
+        <span class="hint mobile touch">{{ expanded ? 'Scroll to browse · hold a name to drag it' : 'Swipe to browse · drag a name up onto a duty' }}</span>
+        <span class="hint mobile mouse">{{ !expanded && overflows ? 'Scroll to browse · drag a name onto a duty' : 'Drag a name onto a duty' }}</span>
       </span>
-      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <svg v-show="canExpand" class="chev" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </button>
-    <div class="list" v-on="swipeScroll">
+    <div ref="listEl" class="list" v-on="swipeScroll">
       <NameSticky
         v-for="op in state.operators"
         :key="op.id"
@@ -158,7 +213,12 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
   min-height: 0;
   max-height: 60vh;
   max-height: 60dvh;
-  padding-bottom: 20px;
+  /* Scroll room under the last row: the 28px bottom fade + 24px breathing room + the home
+     indicator / Safari toolbar inset (the sheet drops its own safe-area padding when
+     expanded, so the grid scrolls to the screen edge). The fade only ever covers padding. */
+  --end-pad: calc(28px + 24px + var(--safe-b));
+  padding-bottom: var(--end-pad);
+  scroll-padding-bottom: var(--end-pad);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -174,6 +234,7 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
     flex-direction: column;
     max-height: calc(100vh - var(--safe-t) - 12px);
     max-height: calc(100dvh - var(--safe-t) - 12px);
+    padding-bottom: 0; /* moved into the list's --end-pad */
   }
   .expanded .head {
     flex: 0 0 auto;
@@ -220,7 +281,7 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
     gap: 10px 8px;
     max-height: none;
     padding-top: 6px;
-    padding-bottom: 28px; /* = the bottom fade, so the last row ends fully opaque */
+    padding-bottom: var(--end-pad);
   }
 }
 /* Expanded grid: vertical swipes scroll; long-press picks a name up */
@@ -229,6 +290,22 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
 }
 .removing {
   box-shadow: inset 0 0 0 2px var(--danger);
+}
+/* Nothing to expand (every name fits in one row): the head is just a label. */
+.head.fixed {
+  cursor: default;
+}
+/* Mouse/trackpad: wheel-scroll wording; touch keeps the swipe / hold wording. */
+.mouse {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .touch {
+    display: none;
+  }
+  .mouse {
+    display: block;
+  }
 }
 
 /* ---------- desktop: Miro side panel ---------- */
@@ -251,6 +328,9 @@ const removing = computed(() => drag.active && !!drag.payload?.assignmentId && d
     border-radius: 22px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     overflow: hidden;
+  }
+  .palette.removing {
+    box-shadow: inset 0 0 0 2px var(--danger), 0 1px 2px rgba(0, 0, 0, 0.06);
   }
   .head {
     justify-content: center;

@@ -3,10 +3,16 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { buildScheduleText, groups, state, toast } from '../store/board'
 import ThemeSwitch from './ThemeSwitch.vue'
 
-const emit = defineEmits<{ editName: [] }>()
+/** `blocked`: a modal is open somewhere — the bars go inert (the copy dialog is ours). */
+const props = defineProps<{ blocked?: boolean }>()
+const emit = defineEmits<{ editName: []; copyDialog: [open: boolean] }>()
 
 const fallbackText = ref<string | null>(null)
+const fallbackOpen = computed(() => fallbackText.value !== null)
+const barsInert = computed(() => props.blocked || fallbackOpen.value || undefined)
 const textarea = ref<HTMLTextAreaElement>()
+const copyBtn = ref<HTMLButtonElement>()
+watch(fallbackOpen, (open) => emit('copyDialog', open))
 const largeTitle = ref<HTMLElement>()
 const navbar = ref<HTMLElement>()
 const titleText = ref<HTMLElement>()
@@ -91,7 +97,14 @@ onBeforeUnmount(() => {
 
 function jump(id: string) {
   activeGroup.value = id
-  document.getElementById(`group-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  document.getElementById(`group-${id}`)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+}
+
+async function closeFallback() {
+  fallbackText.value = null
+  await nextTick() // the bars stop being inert first
+  copyBtn.value?.focus()
 }
 
 async function copy() {
@@ -112,7 +125,7 @@ async function copy() {
 </script>
 
 <template>
-  <header ref="navbar" class="navbar" :class="{ collapsed }" data-top-overlay>
+  <header ref="navbar" class="navbar" :class="{ collapsed }" :inert="barsInert" data-top-overlay>
     <button type="button" class="nav-btn me" :title="`You are ${state.nickname} — tap to change`" @click="emit('editName')">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -128,7 +141,7 @@ async function copy() {
     <span class="status" :class="status.cls"><i aria-hidden="true" />{{ status.label }}</span>
     <span class="right">
     <ThemeSwitch />
-    <button type="button" class="nav-btn copy" aria-label="Copy schedule as text" title="Copy schedule as text" @click="copy">
+    <button ref="copyBtn" type="button" class="nav-btn copy" aria-label="Copy schedule as text" title="Copy schedule as text" @click="copy">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="8.5" y="8.5" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" />
         <path d="M15.5 5.5V5a2 2 0 0 0-2-2H5.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
@@ -138,7 +151,7 @@ async function copy() {
     </span>
   </header>
 
-  <div ref="largeTitle" class="large" :class="{ centered: titleFits }">
+  <div ref="largeTitle" class="large" :class="{ centered: titleFits }" :inert="barsInert">
     <h1><span ref="titleText">{{ title }}</span></h1>
     <p class="sub">
       <span class="month">Month of: <strong>{{ state.month }}</strong></span>
@@ -147,28 +160,36 @@ async function copy() {
     </p>
   </div>
 
-  <div class="segbar" :class="{ collapsed }" data-top-overlay>
-    <div class="segmented" role="tablist" aria-label="Jump to gathering">
+  <div class="segbar" :class="{ collapsed }" :inert="barsInert" data-top-overlay>
+    <!-- Jump links, not tabs: there are no tab panels, every section stays on the page. -->
+    <nav class="segmented" aria-label="Jump to gathering">
       <button
         v-for="g in groups"
         :key="g.id"
         type="button"
-        role="tab"
-        :aria-selected="activeGroup === g.id"
+        :aria-current="activeGroup === g.id ? 'true' : undefined"
         :class="{ on: activeGroup === g.id }"
         @click="jump(g.id)"
       >
         {{ titleCase(g.name) }}
       </button>
-    </div>
+    </nav>
   </div>
 
-  <div v-if="fallbackText !== null" class="overlay" role="dialog" aria-modal="true" aria-label="Copy schedule" @click.self="fallbackText = null">
+  <div
+    v-if="fallbackText !== null"
+    class="overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Copy schedule"
+    @click.self="closeFallback"
+    @keydown.esc.prevent="closeFallback"
+  >
     <div class="card">
       <h2>Copy Schedule</h2>
       <p>Select all and copy this text.</p>
       <textarea ref="textarea" readonly :value="fallbackText" rows="12" />
-      <button type="button" class="btn primary" @click="fallbackText = null">Done</button>
+      <button type="button" class="btn primary" @click="closeFallback">Done</button>
     </div>
   </div>
 </template>
@@ -401,6 +422,19 @@ textarea {
   resize: vertical;
 }
 
+/* Phone portrait, large title showing: the inline title is invisible, so it gives up its
+   middle column and the name button may use everything left of the action buttons.
+   Once the bar collapses the symmetric three-column layout returns. */
+@media (max-width: 767.98px) and (min-height: 540px) {
+  .navbar:not(.collapsed) {
+    grid-template-columns: minmax(0, 1fr) 0 auto;
+  }
+  .navbar:not(.collapsed) .inline-title {
+    visibility: hidden;
+    margin-inline: 0;
+  }
+}
+
 /* ---------- compact height (phone held sideways) ----------
    iOS drops large titles in compact height: the bar shows the inline title from the
    start, with the month/status as a subtitle, and the bars get a little shorter so
@@ -455,6 +489,16 @@ textarea {
   }
   .segmented button {
     height: 24px;
+  }
+  /* Wide but short window (still the phone layout): bar backgrounds stay edge to edge,
+     their content lines up with the board's centred 760px column (App.vue --phone-max). */
+  .navbar {
+    padding-right: max(8px, var(--safe-r), calc((100% - 760px) / 2 - 8px));
+    padding-left: max(8px, var(--safe-l), calc((100% - 760px) / 2 - 8px));
+  }
+  .segbar {
+    padding-right: max(16px, var(--safe-r), calc((100% - 760px) / 2));
+    padding-left: max(16px, var(--safe-l), calc((100% - 760px) / 2));
   }
 }
 
@@ -561,6 +605,12 @@ textarea {
   }
   .large.centered .sub {
     justify-content: center;
+  }
+}
+@media (min-width: 1440px) and (min-height: 540px) {
+  /* Room to spare: show more of a long nickname (--nav-w keeps the title clear). */
+  .nick {
+    max-width: 200px;
   }
 }
 @media (min-width: 768px) and (min-height: 540px) and (max-width: 1199.98px) {

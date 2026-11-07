@@ -30,6 +30,7 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
 <template>
   <section
     class="duty"
+    role="group"
     :class="[isLive ? 'live' : 'playback', { over: isOver && !isDup, dup: isDup, shake: shaking }]"
     :data-drop="`schedule:${schedule.id}`"
     :aria-label="`${schedule.mode} ${schedule.day} ${formatTime(schedule.time)}, ${items.length} operator${items.length === 1 ? '' : 's'}`"
@@ -168,7 +169,7 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
   margin: 0;
   border: 1.5px dashed var(--label-3);
   border-radius: 14px;
-  color: var(--label-3);
+  color: var(--label-2); /* text needs 4.5:1; the dashed border stays subtle */
   font-size: 11px;
   font-weight: 600;
   text-align: center;
@@ -176,6 +177,10 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
 .empty svg {
   width: 20px;
   height: 20px;
+  color: var(--label-3);
+}
+.over .empty svg {
+  color: inherit;
 }
 .over {
   background: var(--soft);
@@ -287,8 +292,8 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
        (209px, measured at 768–1920px wide) + .groups/.board bottom padding (12 + 40px)
        + 15px headroom for a classic (non-overlay) horizontal scrollbar.
        Re-measure if the desktop top bar / group header height changes. */
-    min-height: max(320px, calc(100vh - 276px));
-    min-height: max(320px, calc(100dvh - 276px));
+    min-height: max(260px, calc(100vh - 276px));
+    min-height: max(260px, calc(100dvh - 276px));
     padding: 8px 6px;
     background: var(--col-bg);
     border: 1px solid var(--col-border);
@@ -312,15 +317,23 @@ const isLive = computed(() => props.schedule.mode === 'LIVE')
     box-shadow: inset 0 0 0 2px #9a9ca8;
   }
 }
-/* Dark mode: #3a3a3c column borders vanish on the dark canvas; lift them toward --ink-2. */
+/* Dark mode: #3a3a3c column borders vanish on the dark canvas; lift them toward --ink-2.
+   The drag-over fill is mixed from the accent into the dark column instead of the light
+   pastel hex (which turned near-white). */
 @media (min-width: 768px) and (min-height: 540px) and (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .body {
     border-color: color-mix(in srgb, var(--col-border) 72%, var(--ink-2));
+  }
+  :root:not([data-theme='light']) .duty {
+    --soft: color-mix(in srgb, var(--accent) 22%, var(--col-bg));
   }
 }
 @media (min-width: 768px) and (min-height: 540px) {
   :root[data-theme='dark'] .body {
     border-color: color-mix(in srgb, var(--col-border) 72%, var(--ink-2));
+  }
+  :root[data-theme='dark'] .duty {
+    --soft: color-mix(in srgb, var(--accent) 22%, var(--col-bg));
   }
 }
 </style>
