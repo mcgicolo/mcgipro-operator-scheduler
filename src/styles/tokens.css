@@ -27,6 +27,7 @@
   --tint: var(--ios-blue); /* tint as text */
   --tint-fill: var(--ios-blue); /* background of filled buttons (white text) */
   --danger: #c80010; /* a shade under --ios-red: 4.6+:1 even on the alert material over the dimmed board */
+  --danger-fill: #c80010; /* solid red behind white text */
   --tint-live: rgba(255, 59, 48, 0.12);
   --tint-playback: rgba(0, 122, 255, 0.12);
   --sticky-ink: #1c1c1e;
@@ -79,6 +80,7 @@
     --tint: #409cff; /* increased-contrast blue: 4.9:1 on elevated surfaces */
     --tint-fill: #0071e3; /* white on it: 4.7:1 (#0a84ff is only 3.65) */
     --danger: var(--ios-red);
+    --danger-fill: #c4161d; /* white on it 5.6:1 */
     --material-thick: rgba(28, 28, 30, 0.9);
     --tint-live: rgba(255, 69, 58, 0.2);
     --tint-playback: rgba(10, 132, 255, 0.2);
@@ -112,6 +114,7 @@
   --tint: #409cff;
   --tint-fill: #0071e3;
   --danger: var(--ios-red);
+  --danger-fill: #c4161d;
   --material-thick: rgba(28, 28, 30, 0.9);
   --tint-live: rgba(255, 69, 58, 0.2);
   --tint-playback: rgba(10, 132, 255, 0.2);
@@ -254,4 +257,14 @@ html.dragging * {
   :root {
     --tray-h: 118px;
   }
+}
+
+/* "Show on Board" from History: the sticky pulses twice with a tint ring. */
+.sticky.flash {
+  animation: sticky-flash 1.4s var(--ease-ios);
+  z-index: 5;
+}
+@keyframes sticky-flash {
+  0%, 50%, 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+  20%, 70% { box-shadow: 0 0 0 4px var(--tint), 0 8px 20px rgba(0, 0, 0, 0.25); transform: scale(1.08); }
 }

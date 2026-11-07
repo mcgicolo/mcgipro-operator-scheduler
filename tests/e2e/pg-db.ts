@@ -38,7 +38,7 @@ export function dbRows(): DbRow[] {
 }
 
 export function truncate() {
-  psql('truncate assignments, assignment_writes')
+  psql('truncate assignments, assignment_writes, assignment_events')
 }
 
 /** Creates the test database if needed, applies db/local-schema.sql (idempotent) and empties it. */

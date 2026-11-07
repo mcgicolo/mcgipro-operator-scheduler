@@ -10,8 +10,8 @@
 // Gestures
 //  - Touch, anywhere: long-press (~200ms without moving) picks the sticky up, so
 //    normal scrolling still works.
-//  - Touch, in the phone tray: swipe left/right scrolls the tray; pulling a name
-//    upward picks it up immediately (no long-press needed).
+//  - Touch, in the phone tray: swipe left/right scrolls the tray (when it overflows);
+//    pulling a name up or diagonally out picks it up immediately (no long-press).
 //  - Mouse: moving 4px picks it up. In the phone tray a sideways drag scrolls the tray.
 //  - Plain taps fall through to `click`.
 import { reactive } from 'vue'
@@ -293,6 +293,9 @@ export function draggable(getPayload: () => DragPayload) {
       const tray = el.closest<HTMLElement>('[data-bottom-overlay]')
       // Pull-up shortcut only in the collapsed one-row tray; the expanded grid scrolls vertically.
       const inTray = !!tray && getComputedStyle(tray).position === 'fixed' && !tray.classList.contains('expanded')
+      // Only a tray that can actually scroll sideways needs to tell swipes from pulls.
+      const list = inTray ? el.closest<HTMLElement>('.list') : null
+      const trayScrollsX = !!list && list.scrollWidth > list.clientWidth + 1
       const t0 = e.touches[0]
       const sx = t0.clientX
       const sy = t0.clientY
@@ -315,8 +318,12 @@ export function draggable(getPayload: () => DragPayload) {
           const dx = lx - sx
           const dy = ly - sy
           if (Math.hypot(dx, dy) <= TOUCH_SLOP) return
-          // Tray: pulling a name upward picks it up straight away.
-          if (inTray && dy < 0 && Math.abs(dy) > Math.abs(dx)) {
+          // Tray: pulling a name out picks it up straight away. If the tray scrolls
+          // sideways, only a clearly upward pull (steeper than ~27°) counts, so horizontal
+          // swipes — even ones drifting slightly up — still scroll it; if it doesn't, any
+          // clear movement (e.g. a diagonal pull toward a duty) drags.
+          const pull = !trayScrollsX || (dy < 0 && Math.abs(dy) > 0.5 * Math.abs(dx))
+          if (inTray && pull) {
             ev.preventDefault()
             start()
           } else {

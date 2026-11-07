@@ -85,7 +85,7 @@ watch([() => state.operators.length, expanded], () => nextTick(measure))
       <span class="titles">
         <strong>Operators</strong>
         <span class="hint desktop">Drag your name into a duty column. Drag it back here to remove it.</span>
-        <span class="hint mobile touch">{{ expanded ? 'Scroll to browse · hold a name to drag it' : 'Swipe to browse · drag a name up onto a duty' }}</span>
+        <span class="hint mobile touch">{{ expanded ? 'Scroll to browse · hold a name to drag it' : overflows ? 'Swipe to browse · drag a name up onto a duty' : 'Drag a name up onto a duty' }}</span>
         <span class="hint mobile mouse">{{ !expanded && overflows ? 'Scroll to browse · drag a name onto a duty' : 'Drag a name onto a duty' }}</span>
       </span>
       <svg v-show="canExpand" class="chev" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">

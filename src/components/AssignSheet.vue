@@ -19,7 +19,7 @@ import GatheringIcon from './GatheringIcon.vue'
 export type SheetTarget = { kind: 'operator'; operatorId: string } | { kind: 'assignment'; assignmentId: string }
 
 const props = defineProps<{ target: SheetTarget }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; history: [operatorName: string] }>()
 const panel = ref<HTMLElement>()
 
 // Focus return: remember what opened the sheet (captured during setup, before the board
@@ -175,6 +175,19 @@ function moveTo(scheduleId: string) {
             </div>
           </section>
         </template>
+
+        <section>
+          <div class="list">
+            <button type="button" class="cell link" @click="emit('history', operator.name)">
+              <span class="ico hist" aria-hidden="true" />
+              <span class="cell-text">
+                <span>View History</span>
+                <small>Who added, moved or removed {{ operator.name.split(' ')[0] }}</small>
+              </span>
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.5l6.5 6.5L9 18.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -343,6 +356,17 @@ section {
   background: var(--ios-red)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='3' fill='white'/%3E%3Cpath d='M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")
     center / 18px no-repeat;
+}
+.ico.hist {
+  background: #636366
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.2 3.8v4.6h4.6M12 7.5V12l3 2' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 18px no-repeat;
+}
+.chev {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--label-3);
 }
 .cell-text {
   flex: 1;

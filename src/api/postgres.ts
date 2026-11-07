@@ -1,6 +1,6 @@
 // Local-development backend: talks to the Vite dev API in server/pgDevApi.ts,
 // which sits on a local PostgreSQL database. Live updates arrive over SSE.
-import type { Assignment } from '../config/types'
+import type { Assignment, HistoryEvent } from '../config/types'
 import { BackendError, type Backend, type SubscribeHandlers } from './types'
 
 export function createPostgresBackend(): Backend {
@@ -26,6 +26,12 @@ export function createPostgresBackend(): Backend {
 
     async fetchAll() {
       return (await (await call('assignments')).json()) as Assignment[]
+    },
+
+    async fetchHistory({ beforeId, limit }) {
+      const q = new URLSearchParams({ limit: String(limit) })
+      if (beforeId != null) q.set('before', String(beforeId))
+      return (await (await call(`history?${q}`)).json()) as HistoryEvent[]
     },
 
     subscribe(h: SubscribeHandlers) {
@@ -85,13 +91,15 @@ export function createPostgresBackend(): Backend {
         source.onmessage = (e) => {
           if (es !== source) return
           lastSeen = Date.now()
-          let msg: { op: string; id?: string; row?: Assignment }
+          let msg: { op: string; id?: string; row?: Assignment; event?: HistoryEvent }
           try {
             msg = JSON.parse(e.data)
           } catch {
             return
           }
-          if (msg.op === 'DELETE' && msg.id) h.onDelete(msg.id)
+          if (msg.op === 'EVENT') {
+            if (msg.event) h.onEvent(msg.event)
+          } else if (msg.op === 'DELETE' && msg.id) h.onDelete(msg.id)
           else if (msg.row) h.onUpsert(msg.row)
         }
       }
@@ -127,8 +135,8 @@ export function createPostgresBackend(): Backend {
       await call(`assignments/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
     },
 
-    async remove(id) {
-      await call(`assignments/${id}`, { method: 'DELETE' })
+    async remove(id, by) {
+      await call(`assignments/${id}`, { method: 'DELETE', body: JSON.stringify(by) })
     },
   }
 }

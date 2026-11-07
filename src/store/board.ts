@@ -3,6 +3,7 @@ import type { Assignment, GatheringType, Operator, Schedule, ScheduleConfig, Ope
 import { validateConfig } from '../config/validate'
 import { createBackend, BackendError, type Backend, type ConnectionStatus } from '../api'
 import { scheduleLabel, uuid } from '../utils/format'
+import { attachHistory, receiveHistoryEvent, refreshHistory } from './history'
 
 // ---------------------------------------------------------------- device identity
 
@@ -216,6 +217,7 @@ export async function init() {
 
     backend = await createBackend()
     state.backendKind = backend.kind
+    attachHistory(backend, state.clientId)
     backend.subscribe({
       // While a save of the row is in flight, keep the optimistic version on screen but remember
       // the newest server event; it is applied when the save settles (see commit()).
@@ -229,22 +231,33 @@ export async function init() {
         if (p) p.remote = { kind: 'delete' }
         else delete state.assignments[id]
       },
-      onReconnect: resync,
+      onEvent: receiveHistoryEvent,
+      onReconnect() {
+        void resync()
+        void refreshHistory()
+      },
       onStatus(s) {
         state.connection = s
       },
     })
     await resync()
     state.phase = 'ready'
+    void refreshHistory() // in the background: the board doesn't wait for the paper trail
   } catch (e) {
     state.loadError = (e as Error).message
     state.phase = 'error'
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void resync()
+    if (document.visibilityState === 'visible') {
+      void resync()
+      void refreshHistory()
+    }
   })
-  window.addEventListener('online', () => void resync())
+  window.addEventListener('online', () => {
+    void resync()
+    void refreshHistory()
+  })
   setInterval(() => (state.now = Date.now()), 30_000)
 }
 
@@ -369,7 +382,8 @@ export function removeAssignment(id: string): ChangeResult {
   const before = { ...cur }
   delete state.assignments[id]
   const b = backend
-  void commit(id, before, () => b.remove(id), 'Could not remove', true)
+  const by = { actor: state.nickname, client_id: state.clientId }
+  void commit(id, before, () => b.remove(id, by), 'Could not remove', true)
   toast(`Removed ${operatorsById.value.get(before.operator_id)?.name ?? 'sticky'}`)
   return 'ok'
 }

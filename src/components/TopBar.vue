@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { buildScheduleText, groups, state, toast } from '../store/board'
+import { unreadCount } from '../store/history'
 import ThemeSwitch from './ThemeSwitch.vue'
 
 /** `blocked`: a modal is open somewhere — the bars go inert (the copy dialog is ours). */
 const props = defineProps<{ blocked?: boolean }>()
-const emit = defineEmits<{ editName: []; copyDialog: [open: boolean] }>()
+const emit = defineEmits<{ editName: []; copyDialog: [open: boolean]; history: [] }>()
+const historyLabel = computed(() =>
+  unreadCount.value ? `History, ${unreadCount.value} new change${unreadCount.value === 1 ? '' : 's'}` : 'History',
+)
 
 const fallbackText = ref<string | null>(null)
 const fallbackOpen = computed(() => fallbackText.value !== null)
@@ -35,12 +39,153 @@ const status = computed(() => {
 // min-height 540px, so compact height always means the phone layout.
 const compactMq = typeof matchMedia === 'function' ? matchMedia('(max-height: 539.98px)') : null
 
+// ---------- Keep the reading position across rotation / window resize ----------
+// Every scroll frame remembers the first duty (or group header) that shows below the
+// bars and where it sits. When the layout changes (width, or the compact-height switch),
+// that element is put back in the same spot, re-applied each frame until the layout has
+// settled (bar heights, --nav-w and the tray follow a frame or two later). The restore
+// is always instant (no animation, so reduced motion is respected too), stops as soon as
+// the user touches, wheels or presses a key, and the scroll spy keeps the group it had
+// until the user scrolls again. Height-only resizes (mobile URL bar) are left alone.
+type Anchor = { el: Element | null; off: number; frac: number | null }
+let anchor: Anchor | null = null
+let restoring = false
+let restoreRaf = 0
+let restoreDeadline = 0
+let stableFrames = 0
+let spyHeld = false
+let settledY = 0
+let lastW = typeof innerWidth === 'number' ? innerWidth : 0
+let lastCompact = !!compactMq?.matches
+/** Group being scrolled to by the jump bar (smooth scroll in flight), else null. */
+let jumping: string | null = null
+let jumpTimer = 0
+const userInputs = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+
+/** Where the bars end once stuck (independent of scroll, unlike the segbar's live rect). */
+function barsLine() {
+  const seg = document.querySelector<HTMLElement>('.segbar')
+  if (!seg || !seg.getClientRects().length) return 0 // desktop: no sticky bars
+  return (parseFloat(getComputedStyle(seg).top) || 0) + seg.offsetHeight
+}
+
+function anchorCandidates(): Element[] {
+  const out: Element[] = []
+  for (const g of groups.value) {
+    const sec = document.getElementById(`group-${g.id}`)
+    if (!sec) continue
+    if (sec.firstElementChild) out.push(sec.firstElementChild) // group header
+    out.push(...sec.querySelectorAll('.duty'))
+  }
+  return out
+}
+
+function captureAnchor() {
+  if (scrollY <= 0) {
+    anchor = { el: null, off: 0, frac: null } // at the very top: stay at the top
+    return
+  }
+  const line = barsLine()
+  for (const el of anchorCandidates()) {
+    const r = el.getBoundingClientRect()
+    if (r.bottom <= line + 1) continue
+    const off = r.top - line
+    // Partly under the bars: keep the same fraction of it hidden (its height can change).
+    anchor = { el, off, frac: off < 0 && r.height > 0 ? -off / r.height : null }
+    return
+  }
+}
+
+/** Scrolls the anchor back into place; returns how far the page actually moved. */
+function applyAnchor(): number {
+  const before = scrollY
+  if (jumping) {
+    // A jump-bar scroll was in flight: land on its target instead.
+    document.getElementById(`group-${jumping}`)?.scrollIntoView({ behavior: 'instant', block: 'start' })
+    return scrollY - before
+  }
+  if (!anchor) return 0
+  let delta: number
+  if (!anchor.el) delta = -scrollY
+  else if (!anchor.el.isConnected) return 0
+  else {
+    const r = anchor.el.getBoundingClientRect()
+    delta = r.top - (barsLine() + (anchor.frac !== null ? -anchor.frac * r.height : anchor.off))
+  }
+  if (Math.abs(delta) < 1) return 0
+  scrollTo({ top: scrollY + delta, behavior: 'instant' })
+  return scrollY - before
+}
+
+function startRestore() {
+  if (!anchor && !jumping) return
+  if (jumping) activeGroup.value = jumping
+  restoring = true
+  stableFrames = 0
+  restoreDeadline = performance.now() + 1000
+  cancelAnimationFrame(restoreRaf)
+  applyAnchor()
+  const tick = () => {
+    stableFrames = Math.abs(applyAnchor()) >= 1 ? 0 : stableFrames + 1
+    if (stableFrames >= 3 || performance.now() > restoreDeadline) {
+      restoreRaf = 0
+      restoring = false
+      settledY = scrollY
+      spyHeld = true
+      if (jumping) endJump()
+      return
+    }
+    restoreRaf = requestAnimationFrame(tick)
+  }
+  restoreRaf = requestAnimationFrame(tick)
+}
+
+/** The user took over (touch, wheel, key): stop restoring and let the spy follow again. */
+function onUserInput() {
+  if (restoring) {
+    cancelAnimationFrame(restoreRaf)
+    restoreRaf = 0
+    restoring = false
+  }
+  spyHeld = false
+  if (jumping) endJump()
+}
+
+function endJump() {
+  clearTimeout(jumpTimer)
+  jumping = null
+  if (!restoring) captureAnchor()
+}
+
+/** True (and remembered) when the viewport change can reflow the board. */
+function layoutChanged() {
+  const compact = !!compactMq?.matches
+  if (innerWidth === lastW && compact === lastCompact) return false
+  lastW = innerWidth
+  lastCompact = compact
+  return true
+}
+
+function onResize() {
+  if (layoutChanged()) startRestore()
+  onScroll()
+}
+
 // Large title → inline title, and segmented-control scroll spy (iOS behaviour).
 let raf = 0
 function onScroll() {
+  if (jumping) {
+    // Smooth jump still moving: it is over once scroll events stop for a moment.
+    clearTimeout(jumpTimer)
+    jumpTimer = window.setTimeout(endJump, 150)
+  }
   if (raf) return
   raf = requestAnimationFrame(() => {
     raf = 0
+    // A reflow that reached us before the resize event: restore, don't re-anchor on it.
+    if (layoutChanged()) startRestore()
+    else if (!restoring && !jumping) captureAnchor()
+    if (spyHeld && !restoring && Math.abs(scrollY - settledY) > 1) spyHeld = false
     const h1 = largeTitle.value?.querySelector('h1')
     const navBottom = document.querySelector('.navbar')?.getBoundingClientRect().bottom ?? 0
     // Compact height hides the large title, so the bars only take on their material
@@ -55,7 +200,9 @@ function onScroll() {
     }
     // At the very bottom, the last section is the active one.
     if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) current = groups.value.at(-1)?.id ?? current
-    activeGroup.value = current
+    // While the reading position is being restored (and until the user scrolls on), the
+    // jump bar keeps the group it had: the reflow must not flip it.
+    if (!restoring && !spyHeld) activeGroup.value = current
   })
 }
 // Desktop: the action cluster floats top-right over the title, so publish its real
@@ -79,7 +226,8 @@ watch(title, () => nextTick(layoutTitle))
 onMounted(() => {
   addEventListener('scroll', onScroll, { passive: true })
   // Rotating switches between the large-title and compact layouts without a scroll.
-  addEventListener('resize', onScroll)
+  addEventListener('resize', onResize)
+  for (const t of userInputs) addEventListener(t, onUserInput, { passive: true, capture: true })
   onScroll()
   layoutTitle()
   if (typeof ResizeObserver === 'function') {
@@ -90,13 +238,20 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   removeEventListener('scroll', onScroll)
-  removeEventListener('resize', onScroll)
+  removeEventListener('resize', onResize)
+  for (const t of userInputs) removeEventListener(t, onUserInput, { capture: true })
+  cancelAnimationFrame(restoreRaf)
+  clearTimeout(jumpTimer)
   navObserver?.disconnect()
   document.documentElement.style.removeProperty('--nav-w')
 })
 
 function jump(id: string) {
   activeGroup.value = id
+  spyHeld = false
+  jumping = id
+  clearTimeout(jumpTimer)
+  jumpTimer = window.setTimeout(endJump, 150) // in case there is nothing to scroll
   const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
   document.getElementById(`group-${id}`)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
 }
@@ -141,6 +296,17 @@ async function copy() {
     <span class="status" :class="status.cls"><i aria-hidden="true" />{{ status.label }}</span>
     <span class="right">
     <ThemeSwitch />
+    <button type="button" class="nav-btn history" :aria-label="historyLabel" title="History: who changed what" @click="emit('history')">
+      <span class="h-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          <path d="M3.2 3.8v4.6h4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span v-if="unreadCount" class="h-badge" aria-hidden="true">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+      </span>
+      <span class="history-label">History</span>
+    </button>
     <button ref="copyBtn" type="button" class="nav-btn copy" aria-label="Copy schedule as text" title="Copy schedule as text" @click="copy">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="8.5" y="8.5" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -257,14 +423,41 @@ async function copy() {
   justify-content: center;
 }
 .copy-label,
+.history-label,
 .status {
   display: none;
+}
+.history {
+  justify-content: center;
+}
+.h-icon {
+  position: relative;
+  display: inline-flex;
+}
+/* iOS badge: red pill on the icon's top-right */
+.h-badge {
+  position: absolute;
+  top: -6px;
+  left: 13px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  border: 1.5px solid var(--bg-grouped);
+  background: var(--danger-fill);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
 }
 .inline-title {
   grid-column: 2;
   grid-row: 1;
   /* keep both side columns at least two 44pt buttons wide (88px) */
-  max-width: calc(100vw - max(8px, var(--safe-l)) - max(8px, var(--safe-r)) - 2 * 88px - 16px);
+  max-width: calc(100vw - max(8px, var(--safe-l)) - max(8px, var(--safe-r)) - 2 * var(--right-w, 140px) - 16px);
   margin-inline: 8px;
   font-size: 17px;
   font-weight: 600;
@@ -560,7 +753,16 @@ textarea {
     background: var(--ink);
     color: var(--surface);
   }
-  .copy-label {
+  .history {
+    border: 1px solid var(--col-border);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .h-badge {
+    border-color: var(--surface);
+  }
+  .copy-label,
+  .history-label {
     display: inline;
   }
   .large {
@@ -620,11 +822,13 @@ textarea {
 }
 @media (min-width: 768px) and (min-height: 540px) and (max-width: 899.98px) {
   /* Icon-only copy button (aria-label/title keep it named). */
-  .copy {
+  .copy,
+  .history {
     width: 40px;
     padding: 0;
   }
-  .copy-label {
+  .copy-label,
+  .history-label {
     display: none;
   }
 }

@@ -61,8 +61,8 @@ const hot = computed(() => drag.over?.kind === 'remove')
   height: 28px;
 }
 .hot {
-  background: var(--danger);
-  border-color: var(--danger);
+  background: var(--danger-fill);
+  border-color: var(--danger-fill);
   color: #fff;
 }
 .sr-only {
@@ -143,7 +143,7 @@ const hot = computed(() => drag.over?.kind === 'remove')
     height: 22px;
   }
   .hot {
-    background: var(--danger);
+    background: var(--danger-fill);
     transform: translateX(-50%) scale(1.04);
   }
   .chip {

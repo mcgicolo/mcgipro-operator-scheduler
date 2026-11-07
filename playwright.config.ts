@@ -42,12 +42,15 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,
+  // The two pg spec files share one database, so they run one at a time.
+  workers: PG ? 1 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}${BASE}`,
-    headless: true,
+    // Headed by default so test runs are visible; CI stays headless.
+    headless: !!process.env.CI,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -56,7 +59,7 @@ export default defineConfig({
         {
           // All tests share one database, so the file runs in order on a single worker.
           name: 'pg',
-          testMatch: /pg\.spec\.ts$/,
+          testMatch: /pg(-races)?\.spec\.ts$/,
           fullyParallel: false,
           use: { ...desktopUse, baseURL: `http://localhost:${PG_PORT}${BASE}` },
         },
@@ -65,7 +68,7 @@ export default defineConfig({
         {
           name: 'desktop',
           grepInvert: /@mobile/,
-          testIgnore: /pg\.spec\.ts$/,
+          testIgnore: /pg(-races)?\.spec\.ts$/,
           use: {
             ...desktopUse,
             permissions: ['clipboard-read', 'clipboard-write'],
@@ -74,7 +77,7 @@ export default defineConfig({
         {
           name: 'mobile',
           grepInvert: /@desktop/,
-          testIgnore: /pg\.spec\.ts$/,
+          testIgnore: /pg(-races)?\.spec\.ts$/,
           use: {
             browserName: 'chromium',
             viewport: { width: 393, height: 852 },

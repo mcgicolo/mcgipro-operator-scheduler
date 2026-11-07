@@ -46,3 +46,19 @@ export interface Assignment {
   client_id: string
   moved_at: string // ISO timestamp
 }
+
+export type HistoryAction = 'add' | 'move' | 'remove'
+
+/** One paper-trail entry (a row of the append-only `assignment_events` table). */
+export interface HistoryEvent {
+  id: number
+  at: string // ISO timestamp
+  action: HistoryAction
+  assignment_id: string
+  operator_id: string
+  from_schedule_id: string | null
+  to_schedule_id: string | null
+  /** Nickname of whoever made the change; null when unknown. */
+  actor: string | null
+  client_id: string | null
+}

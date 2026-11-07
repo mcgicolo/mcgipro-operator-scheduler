@@ -51,9 +51,9 @@ defineProps<{ name: string; short: string; color: string; filled: number; total:
   .meta {
     display: none;
   }
-  /* on the coloured bar: a translucent white tile instead of a same-colour one */
+  /* on the coloured bar: a slightly darker tile so the white monogram keeps 4.5:1 */
   .icon {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.16);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
   }
   .title {

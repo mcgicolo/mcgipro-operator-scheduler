@@ -41,7 +41,13 @@ function remove() {
 <template>
   <!-- The note (drag source, visual) holds two sibling controls — the note's own button
        and the ✕ — so the ✕ is never nested inside another interactive element. -->
-  <div class="sticky" :class="[`v-${variant}`, { lifted: isLifted }]" :style="{ '--c': operator.color }" v-on="handlers">
+  <div
+    class="sticky"
+    :class="[`v-${variant}`, { lifted: isLifted }]"
+    :style="{ '--c': operator.color }"
+    :data-assignment="assignment?.id"
+    v-on="handlers"
+  >
     <div
       class="face"
       role="button"

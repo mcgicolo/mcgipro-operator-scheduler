@@ -57,3 +57,62 @@ drop trigger if exists assignments_notify on assignments;
 create trigger assignments_notify
   after insert or update or delete on assignments
   for each row execute function assignments_notify();
+
+-- Paper trail: append-only history of every change (same as supabase/schema.sql).
+create table if not exists assignment_events (
+  id               bigint generated always as identity primary key,
+  at               timestamptz not null default now(),
+  action           text not null check (action in ('add', 'move', 'remove')),
+  assignment_id    uuid not null,
+  operator_id      uuid not null,
+  from_schedule_id uuid,
+  to_schedule_id   uuid,
+  actor            text,
+  client_id        text
+);
+create index if not exists assignment_events_assignment on assignment_events (assignment_id);
+
+create or replace function assignments_log() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into assignment_events (action, assignment_id, operator_id, to_schedule_id, actor, client_id)
+    values ('add', new.id, new.operator_id, new.schedule_id, new.moved_by, new.client_id);
+  elsif tg_op = 'UPDATE' then
+    if new.schedule_id is distinct from old.schedule_id then
+      insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, client_id)
+      values ('move', new.id, new.operator_id, old.schedule_id, new.schedule_id, new.moved_by, new.client_id);
+    end if;
+  else
+    insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, actor, client_id)
+    values ('remove', old.id, old.operator_id, old.schedule_id,
+            nullif(current_setting('app.actor', true), ''), nullif(current_setting('app.client_id', true), ''));
+  end if;
+  return null;
+end $$;
+
+drop trigger if exists assignments_log on assignments;
+create trigger assignments_log
+  after insert or update or delete on assignments
+  for each row execute function assignments_log();
+
+-- Every history row is announced on the same channel, as op EVENT.
+create or replace function assignment_events_notify() returns trigger
+language plpgsql as $$
+begin
+  perform pg_notify('assignments', json_build_object('op', 'EVENT', 'event', row_to_json(new))::text);
+  return null;
+end $$;
+
+drop trigger if exists assignment_events_notify on assignment_events;
+create trigger assignment_events_notify
+  after insert on assignment_events
+  for each row execute function assignment_events_notify();
+
+create or replace function remove_assignment(p_id uuid, p_actor text, p_client_id text) returns void
+language plpgsql as $$
+begin
+  perform set_config('app.actor', left(coalesce(p_actor, ''), 60), true);
+  perform set_config('app.client_id', left(coalesce(p_client_id, ''), 64), true);
+  delete from assignments where id = p_id;
+end $$;

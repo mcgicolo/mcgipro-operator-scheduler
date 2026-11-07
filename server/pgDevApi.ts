@@ -5,8 +5,9 @@
 //   GET    <base>api/assignments        → Assignment[]
 //   POST   <base>api/assignments        → 201 | 400 invalid | 409 duplicate
 //   PATCH  <base>api/assignments/:id    → 204 | 400 invalid | 404 not found
-//   DELETE <base>api/assignments/:id    → 204
-//   GET    <base>api/events             → text/event-stream of {op,row|id} (+ `event: ping` every 15 s)
+//   DELETE <base>api/assignments/:id    → 204   (optional body {actor, client_id} for the paper trail)
+//   GET    <base>api/history?limit&before → HistoryEvent[] newest first (paper trail)
+//   GET    <base>api/events             → text/event-stream of {op,row|id|event} (+ `event: ping` every 15 s)
 //
 // Errors are JSON {code: 'duplicate' | 'not_found' | 'other', message}; 503 means
 // the database is unreachable or not set up (the message says how to fix it).
@@ -14,6 +15,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 
 const COLUMNS = 'id, operator_id, schedule_id, moved_by, client_id, moved_at'
+const EVENT_COLUMNS = 'id, at, action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, client_id'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)$/i
 const MAX_BODY = 10_000
@@ -111,10 +113,21 @@ function sendError(res: ServerResponse, err: unknown) {
 }
 
 /** Serialise timestamps the same way for REST and NOTIFY rows (the store sorts moved_at as a string). */
-function toRow(r: Record<string, unknown>) {
-  const t = r.moved_at
+function iso(t: unknown) {
   const d = t instanceof Date ? t : typeof t === 'string' ? new Date(t) : null
-  return { ...r, moved_at: d && !Number.isNaN(d.getTime()) ? d.toISOString() : t }
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString() : t
+}
+function toRow(r: Record<string, unknown>) {
+  return { ...r, moved_at: iso(r.moved_at) }
+}
+/** Paper-trail row: bigint id as a number, ISO timestamp. */
+function toEvent(r: Record<string, unknown>) {
+  return { ...r, id: Number(r.id), at: iso(r.at) }
+}
+
+/** Optional short string from a JSON body (actor / client_id), else null. */
+function optText(v: unknown, max: number): string | null {
+  return typeof v === 'string' && v.trim() ? [...v.trim()].slice(0, max).join('') : null
 }
 
 export function pgDevApi(databaseUrl: string | undefined, base: string): Plugin {
@@ -183,8 +196,9 @@ export function pgDevApi(databaseUrl: string | undefined, base: string): Plugin 
         l.on('notification', (n) => {
           if (!n.payload) return
           try {
-            const msg = JSON.parse(n.payload) as { op: string; row?: Record<string, unknown> }
+            const msg = JSON.parse(n.payload) as { op: string; row?: Record<string, unknown>; event?: Record<string, unknown> }
             if (msg.row) msg.row = toRow(msg.row)
+            if (msg.event) msg.event = toEvent(msg.event)
             const frame = `data: ${JSON.stringify(msg)}\n\n`
             for (const c of clients) c.write(frame)
           } catch (e) {
@@ -241,6 +255,18 @@ export function pgDevApi(databaseUrl: string | undefined, base: string): Plugin 
           return
         }
 
+        if (path === 'history' && req.method === 'GET') {
+          const q = new URLSearchParams(req.url?.split('?')[1] ?? '')
+          const limit = Math.min(Math.max(Number(q.get('limit')) || 50, 1), 200)
+          const before = q.get('before')
+          if (before !== null && !/^\d+$/.test(before)) return send(res, 400, { code: 'other', message: 'Invalid before: expected an id' })
+          const { rows } = await pool.query(
+            `select ${EVENT_COLUMNS} from assignment_events where ($1::bigint is null or id < $1) order by id desc limit $2`,
+            [before, limit],
+          )
+          return send(res, 200, rows.map(toEvent))
+        }
+
         const [collection, id, extra] = path.split('/')
         if (collection !== 'assignments' || extra !== undefined) return send(res, 404, { code: 'other', message: 'Not found' })
         if (id !== undefined && !UUID_RE.test(id)) return send(res, 400, { code: 'other', message: 'Invalid id: expected a uuid' })
@@ -272,7 +298,9 @@ export function pgDevApi(databaseUrl: string | undefined, base: string): Plugin 
           return rowCount ? send(res, 204) : send(res, 404, { code: 'not_found', message: 'That sticky was already removed' })
         }
         if (req.method === 'DELETE' && id) {
-          await pool.query('delete from assignments where id = $1', [id])
+          // Through remove_assignment() so the paper trail records who removed it.
+          const b = await readJson(req)
+          await pool.query('select remove_assignment($1, $2, $3)', [id, optText(b.actor, 60), optText(b.client_id, 64)])
           return send(res, 204)
         }
         return send(res, 405, { code: 'other', message: 'Method not allowed' })
