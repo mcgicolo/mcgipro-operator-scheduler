@@ -253,7 +253,7 @@ test.describe('board', () => {
       await paletteNote(page, ANDREI).tap()
       const sheet = page.locator('.sheet[role="dialog"]')
       await expect(sheet).toBeVisible()
-      const cells = sheet.locator('.cell')
+      const cells = sheet.locator('.cell[role="checkbox"]')
       await expect(cells).toHaveCount(schedules.length)
 
       await cells.nth(0).tap()
