@@ -1,0 +1,21 @@
+{
+  "title": "OPERATOR SCHEDULING",
+  "month": "November",
+  "instructions": "Put a sticky note with your name under the duty you will take.",
+  "gatheringTypes": [
+    { "id": "c2c191a3-1083-4157-b6b5-008986072098", "name": "PRAYER MEETING",  "short": "PM", "color": "#5B3FA8", "order": 1 },
+    { "id": "c8ed9991-ef32-4325-843b-f36bfcf5642e", "name": "WORSHIP SERVICE", "short": "WS", "color": "#1F3A93", "order": 2 },
+    { "id": "b3bbbd2d-7074-4737-8e04-82a56dc96a25", "name": "THANKSGIVING",    "short": "TG", "color": "#1E7A4C", "order": 3 }
+  ],
+  "schedules": [
+    { "id": "7fb9c285-fcdc-4042-afa7-dd5f4ec7b711", "gatheringTypeId": "c2c191a3-1083-4157-b6b5-008986072098", "mode": "LIVE",     "day": "Wed", "time": "03:30", "order": 1 },
+    { "id": "46405c86-2059-4149-aa13-bee715a97093", "gatheringTypeId": "c2c191a3-1083-4157-b6b5-008986072098", "mode": "PLAYBACK", "day": "Wed", "time": "17:30", "order": 2 },
+    { "id": "526ddb29-ebf9-43f5-ad69-c0220625e45e", "gatheringTypeId": "c2c191a3-1083-4157-b6b5-008986072098", "mode": "PLAYBACK", "day": "Thu", "time": "18:00", "order": 3 },
+    { "id": "9e66c41a-a339-460d-ab74-3b30a4cab3c5", "gatheringTypeId": "c8ed9991-ef32-4325-843b-f36bfcf5642e", "mode": "LIVE",     "day": "Sat", "time": "03:30", "order": 1 },
+    { "id": "f2d95698-3d73-406f-aa55-926702499ff3", "gatheringTypeId": "c8ed9991-ef32-4325-843b-f36bfcf5642e", "mode": "PLAYBACK", "day": "Sat", "time": "07:30", "order": 2 },
+    { "id": "b977da3b-0ad0-4347-9f13-bf3205f26c6a", "gatheringTypeId": "c8ed9991-ef32-4325-843b-f36bfcf5642e", "mode": "PLAYBACK", "day": "Sat", "time": "11:30", "order": 3 },
+    { "id": "b85b738c-eae7-4453-8e6a-373e6b694d1c", "gatheringTypeId": "c8ed9991-ef32-4325-843b-f36bfcf5642e", "mode": "PLAYBACK", "day": "Sun", "time": "07:30", "order": 4 },
+    { "id": "388fbe36-2387-423a-a0b6-aa119b22202f", "gatheringTypeId": "b3bbbd2d-7074-4737-8e04-82a56dc96a25", "mode": "LIVE",     "day": "Sat", "time": "15:30", "order": 1 },
+    { "id": "16be22c0-e1e2-4977-934a-662020be1ffe", "gatheringTypeId": "b3bbbd2d-7074-4737-8e04-82a56dc96a25", "mode": "PLAYBACK", "day": "Sun", "time": "12:30", "order": 2 }
+  ]
+}
