@@ -33,7 +33,8 @@ npm run dev:pg     # vite --mode pg, which loads .env.pg
 The status pill shows **Live · local DB**. A dev-only Vite plugin (`server/pgDevApi.ts`) serves a small REST and Server-Sent Events API at `/mcgipro-operator-scheduler/api/` and uses Postgres `LISTEN/NOTIFY` to push changes, so tabs and phones on your LAN stay in sync.
 
 - **Use another database.** `.env.pg` points at `postgres://localhost:5432/mcgi_board`. Override `DATABASE_URL` in `.env.pg.local` or inline, as in `DATABASE_URL=postgres://user@host/db npm run dev:pg`. `db:setup` only targets `mcgi_board`, so apply the schema yourself with `psql -d <db> -f db/local-schema.sql`.
-- **Reset the board.** Run `psql -d mcgi_board -c 'truncate assignments'`.
+- **Existing local database.** Run `npm run db:setup` again to add the history table.
+- **Reset the board.** Run `psql -d mcgi_board -c 'truncate assignments, assignment_events'` (this clears the history too).
 - **Dev only.** This backend exists only under `vite` dev. Production builds never include it, and the deployed site still uses Supabase.
 
 The backend is picked at startup, first match wins:
@@ -47,8 +48,21 @@ The backend is picked at startup, first match wins:
 ## One-time Supabase setup
 
 1. Open the project in the Supabase dashboard and go to **SQL Editor**.
-2. Paste and run [`supabase/schema.sql`](supabase/schema.sql). It creates the `assignments` table, the RLS policy, realtime publishing and a write rate-limit trigger.
+2. Paste and run [`supabase/schema.sql`](supabase/schema.sql). It creates the `assignments` table, the RLS policy, realtime publishing, a write rate-limit trigger and the append-only `assignment_events` history table (with its logging trigger and the `remove_assignment` function).
 3. Copy the **Project URL** and the **anon public** key from **Project Settings → API** into `.env`.
+
+**Existing projects:** re-run `supabase/schema.sql` to get History. It is safe to re-run. Until you do, the board works as before and History shows "History Isn't Set Up".
+
+## History (paper trail)
+
+Every add, move and remove is logged, so you can see who changed what and when.
+
+- **Open it** with the **History** button in the top bar. A red badge counts changes by others since you last looked.
+- **Find things** with the search box and the All / Added / Moved / Removed filter. Entries are grouped by day, newest first.
+- **Tap a row** for its details and that sticky's whole trail, with a **Show on Board** button. A sticky's own sheet has **View History** too.
+- **Quick series are merged.** Adds or moves of one sticky by the same person within 5 minutes show as one row.
+- **Read-only.** Entries can't be edited or deleted from the app, because the anon key can only read the history table.
+- In demo mode the log lives in this browser and keeps the last 500 entries.
 
 ## Changing the board
 

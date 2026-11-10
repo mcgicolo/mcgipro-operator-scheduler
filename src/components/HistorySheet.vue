@@ -3,7 +3,7 @@
 //  - list: search + All/Added/Moved/Removed filter, grouped by day, newest first, live
 //  - tap a row → detail view pushed inside the sheet (iOS navigation), with the sticky's
 //    whole trail and "Show on Board"
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { HistoryAction, HistoryEvent } from '../config/types'
 import { groups, operatorsById, state, visibleScheduleIds } from '../store/board'
 import { history, isMine, loadMoreHistory, markHistorySeen, refreshHistory } from '../store/history'
@@ -31,6 +31,20 @@ const query = ref(props.initialQuery ?? '')
 const filter = ref<Filter>('all')
 const detail = ref<HistoryEntry | null>(null)
 let detailOpener: HTMLElement | null = null
+
+// Focus return: what opened the sheet (captured in setup, before the bars turn inert) gets
+// focus back on close, unless "Show on Board" already moved it to the sticky. Done after the
+// unmount's render, when the bars are no longer inert.
+const opened = document.activeElement
+const opener = opened instanceof HTMLElement && opened !== document.body ? opened : null
+onUnmounted(() => {
+  nextTick(() => {
+    const a = document.activeElement
+    if (a && a !== document.body && a.isConnected) return
+    const el = opener?.isConnected ? opener : document.querySelector<HTMLElement>('.navbar .nav-btn.history')
+    el?.focus({ preventScroll: true })
+  })
+})
 
 // Entries by other people that arrived since this device last looked get a blue dot (like
 // unread mail); entries that arrive while the sheet is open flash in.

@@ -76,7 +76,6 @@ function restoreTo(fallbackSel: string | null) {
 }
 watch(() => !!sheet.value, restoreTo(null), { flush: 'sync' })
 watch(editingName, restoreTo('.navbar .nav-btn.me'), { flush: 'sync' })
-watch(() => historyQuery.value !== null, restoreTo('.navbar .nav-btn.history'), { flush: 'sync' })
 
 function openHistory(query = '') {
   sheet.value = null
