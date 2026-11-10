@@ -93,6 +93,7 @@ export function createLocalBackend(): Backend {
         from_schedule_id: null,
         to_schedule_id: row.schedule_id,
         actor: row.moved_by,
+        actor_email: row.moved_by_email ?? null,
         client_id: row.client_id,
       })
     },
@@ -117,6 +118,7 @@ export function createLocalBackend(): Backend {
           from_schedule_id: from,
           to_schedule_id: row.schedule_id,
           actor: patch.moved_by,
+          actor_email: patch.moved_by_email ?? null,
           client_id: patch.client_id,
         })
       }
@@ -136,6 +138,7 @@ export function createLocalBackend(): Backend {
           from_schedule_id: row.schedule_id,
           to_schedule_id: null,
           actor: by.actor,
+          actor_email: by.actor_email,
           client_id: by.client_id,
         })
       }

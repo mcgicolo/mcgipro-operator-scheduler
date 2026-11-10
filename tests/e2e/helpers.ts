@@ -37,8 +37,15 @@ export const scheduleLabel = (s: Schedule) => `${s.mode} ${s.day} ${formatTime(s
 
 // ---------------------------------------------------------------- setup
 
-export async function setNickname(context: BrowserContext, name = 'E2E') {
-  await context.addInitScript((n) => localStorage.setItem('nickname', n), name)
+/** Sets a name and work email so the profile gate is skipped. */
+export async function setNickname(context: BrowserContext, name = 'E2E', email = 'e2e@example.com') {
+  await context.addInitScript(
+    ([n, e]) => {
+      localStorage.setItem('nickname', n)
+      localStorage.setItem('email', e)
+    },
+    [name, email] as const,
+  )
 }
 
 /** Opens the board and waits until the palette has rendered. */

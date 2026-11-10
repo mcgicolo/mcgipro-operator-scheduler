@@ -108,7 +108,7 @@ const filtered = computed(() => {
   return entries.value.filter((e) => {
     if (filter.value !== 'all' && e.action !== filter.value) return false
     if (!q) return true
-    const hay = [opName(e.operatorId), who(e), e.actor ?? '', placeText(e.from), placeText(e.to)].join(' ')
+    const hay = [opName(e.operatorId), who(e), e.actor ?? '', e.actorEmail ?? '', placeText(e.from), placeText(e.to)].join(' ')
     return fold(hay).includes(q)
   })
 })
@@ -393,6 +393,7 @@ function clearSearch() {
                   <dd>
                     <span>
                       {{ detail.actor || 'Someone' }}
+                      <a v-if="detail.actorEmail" class="kv-email" :href="`mailto:${detail.actorEmail}`">{{ detail.actorEmail }}</a>
                       <small>{{ detail.clientId === state.clientId ? 'This device' : detail.clientId ? 'Another device' : 'Unknown device' }}</small>
                     </span>
                   </dd>
@@ -963,6 +964,13 @@ dd small {
   display: block;
   color: var(--label-2);
   font-size: 13px;
+}
+.kv-email {
+  display: block;
+  color: var(--tint);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  text-decoration: none;
 }
 .kv-g {
   display: block;

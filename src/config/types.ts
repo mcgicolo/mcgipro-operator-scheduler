@@ -43,6 +43,8 @@ export interface Assignment {
   operator_id: string
   schedule_id: string
   moved_by: string
+  /** Work email of whoever last placed / moved it (absent on rows saved before emails were required). */
+  moved_by_email?: string | null
   client_id: string
   moved_at: string // ISO timestamp
 }
@@ -60,5 +62,7 @@ export interface HistoryEvent {
   to_schedule_id: string | null
   /** Nickname of whoever made the change; null when unknown. */
   actor: string | null
+  /** Their work email; null / absent when unknown (older entries). */
+  actor_email?: string | null
   client_id: string | null
 }

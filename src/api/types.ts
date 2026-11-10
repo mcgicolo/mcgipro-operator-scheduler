@@ -16,6 +16,7 @@ export interface SubscribeHandlers {
 /** Who made a change, recorded in the paper trail. */
 export interface Actor {
   actor: string
+  actor_email: string
   client_id: string
 }
 
@@ -26,7 +27,7 @@ export interface Backend {
   fetchHistory(opts: { beforeId?: number; limit: number }): Promise<HistoryEvent[]>
   subscribe(handlers: SubscribeHandlers): () => void
   add(row: Assignment): Promise<void>
-  move(id: string, patch: Pick<Assignment, 'schedule_id' | 'moved_by' | 'client_id' | 'moved_at'>): Promise<void>
+  move(id: string, patch: Pick<Assignment, 'schedule_id' | 'moved_by' | 'moved_by_email' | 'client_id' | 'moved_at'>): Promise<void>
   remove(id: string, by: Actor): Promise<void>
 }
 

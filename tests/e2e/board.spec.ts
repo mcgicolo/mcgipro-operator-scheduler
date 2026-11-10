@@ -48,18 +48,67 @@ test.describe('name gate', () => {
     await input.press('Enter')
     await expect(gate).toBeVisible()
 
+    // A valid name alone isn't enough: the work email is required too.
     await input.fill('  Jo  ')
+    await expect(submit).toBeDisabled()
+    const email = page.getByPlaceholder('Work email')
+    await email.fill('jo@')
+    await email.blur()
+    await expect(gate.locator('#gate-email-err')).toHaveText(/valid email/)
+    await expect(submit).toBeDisabled()
+    await email.fill(' Jo@Example.com ')
     await expect(submit).toBeEnabled()
     await submit.click()
     await expect(gate).toBeHidden()
     await expect(page.locator('main.board')).not.toHaveAttribute('inert', /.*/)
     expect(await page.evaluate(() => localStorage.getItem('nickname'))).toBe('Jo')
+    expect(await page.evaluate(() => localStorage.getItem('email'))).toBe('jo@example.com')
     await expect(page.locator('.navbar .nick')).toHaveText('Jo')
 
     // Returning visitor: no gate.
     await page.reload()
     await expect(page.locator('aside.palette .v-palette')).toHaveCount(operators.length)
     await expect(page.getByPlaceholder('Name or nickname')).toHaveCount(0)
+
+    // Name and email can be changed at any time from the top bar.
+    await page.locator('.navbar .nav-btn.me').click()
+    await expect(page.getByPlaceholder('Name or nickname')).toHaveValue('Jo')
+    await page.getByPlaceholder('Work email').fill('jo.new@example.com')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByPlaceholder('Work email')).toHaveCount(0)
+    expect(await page.evaluate(() => localStorage.getItem('email'))).toBe('jo.new@example.com')
+  })
+
+  test('an invalid saved email, or one cleared in another tab, brings the modal back', async ({ context, page }) => {
+    // Seed only once, so the second tab below doesn't write the bad email back.
+    await context.addInitScript(() => {
+      if (localStorage.getItem('nickname')) return
+      localStorage.setItem('nickname', 'Jo')
+      localStorage.setItem('email', 'not-an-email')
+    })
+    await page.goto('./')
+    await expect(page.getByRole('heading', { name: 'Add your work email' })).toBeVisible()
+    await page.getByPlaceholder('Work email').fill('jo@example.com')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByPlaceholder('Work email')).toHaveCount(0)
+
+    // Another tab of the same site clears the email: this tab asks again without a reload.
+    const other = await context.newPage()
+    await other.goto(page.url())
+    await other.evaluate(() => localStorage.removeItem('email'))
+    await expect(page.getByRole('heading', { name: 'Add your work email' })).toBeVisible()
+    await expect(page.locator('main.board')).toHaveAttribute('inert', /.*/)
+  })
+
+  test('someone with a name but no email yet is asked for the email only', async ({ context, page }) => {
+    await context.addInitScript(() => localStorage.setItem('nickname', 'Jo'))
+    await page.goto('./')
+    await expect(page.getByRole('heading', { name: 'Add your work email' })).toBeVisible()
+    await expect(page.getByPlaceholder('Name or nickname')).toHaveValue('Jo')
+    await expect(page.getByPlaceholder('Work email')).toBeFocused()
+    await page.getByPlaceholder('Work email').fill('jo@example.com')
+    await page.getByPlaceholder('Work email').press('Enter')
+    await expect(page.getByPlaceholder('Work email')).toHaveCount(0)
   })
 })
 

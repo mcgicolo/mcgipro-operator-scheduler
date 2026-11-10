@@ -8,6 +8,7 @@ import { attachHistory, receiveHistoryEvent, refreshHistory } from './history'
 // ---------------------------------------------------------------- device identity
 
 const LS_NICK = 'nickname'
+const LS_EMAIL = 'email'
 const LS_CLIENT = 'clientId'
 
 function lsGet(k: string): string | null {
@@ -54,6 +55,8 @@ interface State {
   operators: Operator[]
   assignments: Record<string, Assignment>
   nickname: string
+  /** Work email, required alongside the name (kept on this device). */
+  email: string
   clientId: string
   backendKind: 'supabase' | 'postgres' | 'local' | null
   connection: ConnectionStatus
@@ -75,6 +78,7 @@ export const state = reactive<State>({
   operators: [],
   assignments: {},
   nickname: (lsGet(LS_NICK) || '').trim(),
+  email: (lsGet(LS_EMAIL) || '').trim().toLowerCase(),
   clientId: initClientId(),
   backendKind: null,
   connection: 'connecting',
@@ -165,11 +169,31 @@ export function toast(text: string, kind: Toast['kind'] = 'info') {
   setTimeout(() => dismissToast(t.id), 2600)
 }
 
-// ---------------------------------------------------------------- nickname
+// ---------------------------------------------------------------- profile (name + work email)
 
-export function setNickname(name: string) {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+export const isValidEmail = (v: string) => v.length <= 254 && EMAIL_RE.test(v)
+export const normalizeEmail = (v: string) => v.trim().toLowerCase()
+
+/** Name and work email are both required before the board can be used. */
+export const profileComplete = computed(() => !!state.nickname && isValidEmail(state.email))
+
+export function setProfile(name: string, email: string) {
   state.nickname = name.trim()
+  state.email = normalizeEmail(email)
   lsSet(LS_NICK, state.nickname)
+  lsSet(LS_EMAIL, state.email)
+}
+
+// Keep the profile in step with other tabs: if the name or email is changed or cleared
+// elsewhere (another tab, site data cleared), this tab picks it up and, when either one
+// is now missing, the profile modal opens again right away instead of on the next reload.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.storageArea !== localStorage) return
+    if (e.key === null || e.key === LS_NICK) state.nickname = (lsGet(LS_NICK) || '').trim()
+    if (e.key === null || e.key === LS_EMAIL) state.email = normalizeEmail(lsGet(LS_EMAIL) || '')
+  })
 }
 
 // ---------------------------------------------------------------- loading + sync
@@ -328,7 +352,7 @@ async function commit(id: string, before: Assignment | null, run: () => Promise<
 export type ChangeResult = 'ok' | 'duplicate' | 'noop' | 'blocked'
 
 export function addAssignment(operatorId: string, scheduleId: string): ChangeResult {
-  if (!backend || !state.nickname) return 'blocked'
+  if (!backend || !profileComplete.value) return 'blocked'
   if (findAssignment(operatorId, scheduleId)) {
     toast('Already in this duty', 'error')
     return 'duplicate'
@@ -339,6 +363,7 @@ export function addAssignment(operatorId: string, scheduleId: string): ChangeRes
     operator_id: operatorId,
     schedule_id: scheduleId,
     moved_by: state.nickname,
+    moved_by_email: state.email,
     client_id: state.clientId,
     moved_at: new Date().toISOString(),
   }
@@ -350,7 +375,7 @@ export function addAssignment(operatorId: string, scheduleId: string): ChangeRes
 
 export function moveAssignment(id: string, toScheduleId: string): ChangeResult {
   const cur = state.assignments[id]
-  if (!backend || !cur || !state.nickname) return 'blocked'
+  if (!backend || !cur || !profileComplete.value) return 'blocked'
   if (cur.schedule_id === toScheduleId) return 'noop'
   if (findAssignment(cur.operator_id, toScheduleId)) {
     toast('Already in this duty', 'error')
@@ -360,6 +385,7 @@ export function moveAssignment(id: string, toScheduleId: string): ChangeResult {
   const patch = {
     schedule_id: toScheduleId,
     moved_by: state.nickname,
+    moved_by_email: state.email,
     client_id: state.clientId,
     moved_at: new Date().toISOString(),
   }
@@ -377,12 +403,12 @@ export function requestRemove(id: string) {
 
 export function removeAssignment(id: string): ChangeResult {
   const cur = state.assignments[id]
-  if (!backend || !cur || !state.nickname) return 'blocked'
+  if (!backend || !cur || !profileComplete.value) return 'blocked'
   if (throttled()) return 'blocked'
   const before = { ...cur }
   delete state.assignments[id]
   const b = backend
-  const by = { actor: state.nickname, client_id: state.clientId }
+  const by = { actor: state.nickname, actor_email: state.email, client_id: state.clientId }
   void commit(id, before, () => b.remove(id, by), 'Could not remove', true)
   toast(`Removed ${operatorsById.value.get(before.operator_id)?.name ?? 'sticky'}`)
   return 'ok'

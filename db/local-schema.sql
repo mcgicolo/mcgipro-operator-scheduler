@@ -13,6 +13,10 @@ create table if not exists assignments (
   unique (operator_id, schedule_id)
 );
 
+-- Work email of whoever last placed / moved the sticky (added later; null on older rows).
+alter table assignments add column if not exists moved_by_email text
+  check (moved_by_email is null or char_length(moved_by_email) <= 254);
+
 -- Abuse guard: more than 60 writes per client_id per minute is rejected.
 create table if not exists assignment_writes (
   client_id  text not null,
@@ -71,22 +75,24 @@ create table if not exists assignment_events (
   client_id        text
 );
 create index if not exists assignment_events_assignment on assignment_events (assignment_id);
+alter table assignment_events add column if not exists actor_email text; -- work email; null when unknown
 
 create or replace function assignments_log() returns trigger
 language plpgsql as $$
 begin
   if tg_op = 'INSERT' then
-    insert into assignment_events (action, assignment_id, operator_id, to_schedule_id, actor, client_id)
-    values ('add', new.id, new.operator_id, new.schedule_id, new.moved_by, new.client_id);
+    insert into assignment_events (action, assignment_id, operator_id, to_schedule_id, actor, actor_email, client_id)
+    values ('add', new.id, new.operator_id, new.schedule_id, new.moved_by, new.moved_by_email, new.client_id);
   elsif tg_op = 'UPDATE' then
     if new.schedule_id is distinct from old.schedule_id then
-      insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, client_id)
-      values ('move', new.id, new.operator_id, old.schedule_id, new.schedule_id, new.moved_by, new.client_id);
+      insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, actor_email, client_id)
+      values ('move', new.id, new.operator_id, old.schedule_id, new.schedule_id, new.moved_by, new.moved_by_email, new.client_id);
     end if;
   else
-    insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, actor, client_id)
+    insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, actor, actor_email, client_id)
     values ('remove', old.id, old.operator_id, old.schedule_id,
-            nullif(current_setting('app.actor', true), ''), nullif(current_setting('app.client_id', true), ''));
+            nullif(current_setting('app.actor', true), ''), nullif(current_setting('app.actor_email', true), ''),
+            nullif(current_setting('app.client_id', true), ''));
   end if;
   return null;
 end $$;
@@ -113,6 +119,15 @@ create or replace function remove_assignment(p_id uuid, p_actor text, p_client_i
 language plpgsql as $$
 begin
   perform set_config('app.actor', left(coalesce(p_actor, ''), 60), true);
+  perform set_config('app.client_id', left(coalesce(p_client_id, ''), 64), true);
+  delete from assignments where id = p_id;
+end $$;
+
+create or replace function remove_assignment(p_id uuid, p_actor text, p_actor_email text, p_client_id text) returns void
+language plpgsql as $$
+begin
+  perform set_config('app.actor', left(coalesce(p_actor, ''), 60), true);
+  perform set_config('app.actor_email', left(coalesce(p_actor_email, ''), 254), true);
   perform set_config('app.client_id', left(coalesce(p_client_id, ''), 64), true);
   delete from assignments where id = p_id;
 end $$;

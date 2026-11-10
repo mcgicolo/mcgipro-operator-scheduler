@@ -11,6 +11,10 @@ create table if not exists public.assignments (
   unique (operator_id, schedule_id)     -- an operator only once per duty
 );
 
+-- Work email of whoever last placed / moved the sticky (added later; null on older rows).
+alter table public.assignments add column if not exists moved_by_email text
+  check (moved_by_email is null or char_length(moved_by_email) <= 254);
+
 -- Realtime (INSERT / UPDATE / DELETE)
 do $$
 begin
@@ -69,6 +73,7 @@ create table if not exists public.assignment_events (
   client_id        text              -- device that made the change
 );
 create index if not exists assignment_events_assignment on public.assignment_events (assignment_id);
+alter table public.assignment_events add column if not exists actor_email text; -- work email; null when unknown
 
 alter table public.assignment_events enable row level security;
 drop policy if exists "public read" on public.assignment_events;
@@ -84,18 +89,19 @@ create or replace function public.assignments_log() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if tg_op = 'INSERT' then
-    insert into assignment_events (action, assignment_id, operator_id, to_schedule_id, actor, client_id)
-    values ('add', new.id, new.operator_id, new.schedule_id, new.moved_by, new.client_id);
+    insert into assignment_events (action, assignment_id, operator_id, to_schedule_id, actor, actor_email, client_id)
+    values ('add', new.id, new.operator_id, new.schedule_id, new.moved_by, new.moved_by_email, new.client_id);
   elsif tg_op = 'UPDATE' then
     if new.schedule_id is distinct from old.schedule_id then
-      insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, client_id)
-      values ('move', new.id, new.operator_id, old.schedule_id, new.schedule_id, new.moved_by, new.client_id);
+      insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, actor_email, client_id)
+      values ('move', new.id, new.operator_id, old.schedule_id, new.schedule_id, new.moved_by, new.moved_by_email, new.client_id);
     end if;
   else
     -- A delete carries no row data of its own: remove_assignment() passes who did it.
-    insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, actor, client_id)
+    insert into assignment_events (action, assignment_id, operator_id, from_schedule_id, actor, actor_email, client_id)
     values ('remove', old.id, old.operator_id, old.schedule_id,
-            nullif(current_setting('app.actor', true), ''), nullif(current_setting('app.client_id', true), ''));
+            nullif(current_setting('app.actor', true), ''), nullif(current_setting('app.actor_email', true), ''),
+            nullif(current_setting('app.client_id', true), ''));
   end if;
   return null;
 end $$;
@@ -115,3 +121,15 @@ begin
   delete from assignments where id = p_id;
 end $$;
 grant execute on function public.remove_assignment(uuid, text, text) to anon;
+
+-- Same, also recording the remover's work email. The 3-argument version above stays for
+-- app versions still cached on people's phones.
+create or replace function public.remove_assignment(p_id uuid, p_actor text, p_actor_email text, p_client_id text) returns void
+language plpgsql security invoker set search_path = public as $$
+begin
+  perform set_config('app.actor', left(coalesce(p_actor, ''), 60), true);
+  perform set_config('app.actor_email', left(coalesce(p_actor_email, ''), 254), true);
+  perform set_config('app.client_id', left(coalesce(p_client_id, ''), 64), true);
+  delete from assignments where id = p_id;
+end $$;
+grant execute on function public.remove_assignment(uuid, text, text, text) to anon;

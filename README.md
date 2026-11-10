@@ -51,7 +51,7 @@ The backend is picked at startup, first match wins:
 2. Paste and run [`supabase/schema.sql`](supabase/schema.sql). It creates the `assignments` table, the RLS policy, realtime publishing, a write rate-limit trigger and the append-only `assignment_events` history table (with its logging trigger and the `remove_assignment` function).
 3. Copy the **Project URL** and the **anon public** key from **Project Settings → API** into `.env`.
 
-**Existing projects:** re-run `supabase/schema.sql` to get History. It is safe to re-run. Until you do, the board works as before and History shows "History Isn't Set Up".
+**Existing projects:** re-run `supabase/schema.sql` to get History. It is safe to re-run. Until you do, the board works as before and History shows "History Isn't Set Up". Re-run it again to record each person's work email with their changes; until then, changes are saved without the email.
 
 ## History (paper trail)
 

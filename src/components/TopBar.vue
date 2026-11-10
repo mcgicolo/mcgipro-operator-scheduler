@@ -281,7 +281,7 @@ async function copy() {
 
 <template>
   <header ref="navbar" class="navbar" :class="{ collapsed }" :inert="barsInert" data-top-overlay>
-    <button type="button" class="nav-btn me" :title="`You are ${state.nickname} — tap to change`" @click="emit('editName')">
+    <button type="button" class="nav-btn me" :title="`You are ${state.nickname} (${state.email}) — tap to edit your name or email`" @click="emit('editName')">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8" />
         <circle cx="12" cy="10" r="3.3" fill="none" stroke="currentColor" stroke-width="1.8" />

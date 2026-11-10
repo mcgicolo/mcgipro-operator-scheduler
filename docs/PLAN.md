@@ -183,9 +183,10 @@ The order follows gathering type and schedule `order`. Operators within a schedu
 ### 5.5 First-visit name gate
 
 - On first load, if `localStorage.nickname` isn't set, a full-screen modal asks: *"What's your name or nickname?"* It requires 2–30 characters and is trimmed.
+- The same modal also requires a work email (`localStorage.email`, trimmed and lower-cased, basic `name@domain.tld` check). If either is missing — including people who set a name before email was required — the modal shows and blocks the board. The email is sent with every change (`moved_by_email` on the sticky, `actor_email` in the history log) and shown in the History detail view.
 - The name is saved in `localStorage` together with a random `clientId`.
 - The name is sent with every change as `movedBy`. It's an honor system, not authentication.
-- The name can be changed from the top bar.
+- The name and email can be changed at any time from the top bar.
 
 ## 6. Realtime sync (Supabase)
 

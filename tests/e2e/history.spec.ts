@@ -93,6 +93,7 @@ test('records who added, moved and removed a sticky; quick add + move read as on
   await expect(detail.locator('.hero-name')).toHaveText(ELIJ)
   await expect(detail.locator('.kv-row', { hasText: 'By' })).toContainText('Jon')
   await expect(detail.locator('.kv-row', { hasText: 'By' })).toContainText('This device')
+  await expect(detail.locator('.kv-email')).toHaveText('e2e@example.com')
   await expect(detail.locator('.timeline li')).toHaveCount(3)
   await expect(detail.getByText('This sticky is no longer on the board.')).toBeVisible()
   // Escape goes back to the list first, then closes the sheet.

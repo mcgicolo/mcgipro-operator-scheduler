@@ -5,12 +5,21 @@ import { BackendError, type Backend, type SubscribeHandlers } from './types'
 const TABLE = 'assignments'
 const COLUMNS = 'id, operator_id, schedule_id, moved_by, client_id, moved_at'
 const EVENTS = 'assignment_events'
-const EVENT_COLUMNS = 'id, at, action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, client_id'
+// '*' rather than a column list: a database whose schema predates actor_email still answers.
+const EVENT_COLUMNS = '*'
 
 function toError(err: { code?: string; message: string }): BackendError {
   // 23505 = unique_violation → (operator_id, schedule_id) already exists
   if (err.code === '23505') return new BackendError('Already in this duty', 'duplicate')
   return new BackendError(err.message || 'Could not save change')
+}
+
+/** The email column isn't there yet (PGRST204 = unknown column): supabase/schema.sql hasn't been re-run. */
+const noEmailColumn = (err: { code?: string; message?: string }) =>
+  (err.code === 'PGRST204' || err.code === '42703') && /moved_by_email/.test(err.message ?? '')
+function withoutEmail<T extends { moved_by_email?: unknown }>(v: T): Omit<T, 'moved_by_email'> {
+  const { moved_by_email: _, ...rest } = v
+  return rest
 }
 
 /** The paper-trail table / function isn't there yet: supabase/schema.sql hasn't been re-run. */
@@ -77,19 +86,30 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async add(row) {
-      const { error } = await db.from(TABLE).insert(row)
+      let { error } = await db.from(TABLE).insert(row)
+      if (error && noEmailColumn(error)) ({ error } = await db.from(TABLE).insert(withoutEmail(row)))
       if (error) throw toError(error)
     },
 
     async move(id, patch) {
-      const { data, error } = await db.from(TABLE).update(patch).eq('id', id).select('id')
+      let { data, error } = await db.from(TABLE).update(patch).eq('id', id).select('id')
+      if (error && noEmailColumn(error)) ({ data, error } = await db.from(TABLE).update(withoutEmail(patch)).eq('id', id).select('id'))
       if (error) throw toError(error)
       if (!data?.length) throw new BackendError('That sticky was already removed', 'not_found')
     },
 
     async remove(id, by) {
       // Through remove_assignment() so the paper trail knows who removed it.
-      const { error } = await db.rpc('remove_assignment', { p_id: id, p_actor: by.actor, p_client_id: by.client_id })
+      let { error } = await db.rpc('remove_assignment', {
+        p_id: id,
+        p_actor: by.actor,
+        p_actor_email: by.actor_email,
+        p_client_id: by.client_id,
+      })
+      if (!error) return
+      if (!missing(error)) throw toError(error)
+      // Schema predates emails: the 3-argument version still records the name.
+      ;({ error } = await db.rpc('remove_assignment', { p_id: id, p_actor: by.actor, p_client_id: by.client_id }))
       if (!error) return
       if (!missing(error)) throw toError(error)
       // Older database without the function: a plain delete still works (logged as "someone").

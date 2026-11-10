@@ -1,25 +1,41 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { setNickname, state } from '../store/board'
+import { isValidEmail, normalizeEmail, setProfile, state } from '../store/board'
 
 const props = defineProps<{ editing?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
-const name = ref(props.editing ? state.nickname : '')
-const touched = ref(false)
-const input = ref<HTMLInputElement>()
+// Prefill whatever we already know: a returning visitor who has a name but no email yet
+// only has to add the email.
+const name = ref(state.nickname)
+const email = ref(state.email)
+const touchedName = ref(false)
+const touchedEmail = ref(false)
+const nameInput = ref<HTMLInputElement>()
+const emailInput = ref<HTMLInputElement>()
 const trimmed = computed(() => name.value.trim())
-const error = computed(() => {
+const nameError = computed(() => {
   if (trimmed.value.length < 2) return 'At least 2 characters'
   if (trimmed.value.length > 30) return 'At most 30 characters'
   return ''
 })
+const emailError = computed(() => {
+  const v = normalizeEmail(email.value)
+  if (!v) return 'Enter your work email'
+  if (!isValidEmail(v)) return 'Enter a valid email, like name@company.com'
+  return ''
+})
+const invalid = computed(() => !!nameError.value || !!emailError.value)
+/** Has a name already, only the email is missing. */
+const onlyEmail = !props.editing && !!state.nickname && !nameError.value
+
+const title = props.editing ? 'Your Name & Email' : onlyEmail ? 'Add your work email' : "What's your name?"
 
 // Focus return: remember what had focus when the gate opened (the TopBar name button for
-// "Change Your Name") and give it back after Save / Cancel / Esc.
+// editing) and give it back after Save / Cancel / Esc.
 const opened = document.activeElement
 const opener = opened instanceof HTMLElement && opened !== document.body ? opened : null
-onMounted(() => input.value?.focus())
+onMounted(() => (onlyEmail ? emailInput : nameInput).value?.focus())
 onUnmounted(() => {
   nextTick(() => {
     const a = document.activeElement
@@ -29,10 +45,18 @@ onUnmounted(() => {
   })
 })
 
+function nextField() {
+  touchedName.value = true
+  if (nameError.value) return
+  emailInput.value?.focus()
+}
+
 function submit() {
-  touched.value = true
-  if (error.value) return
-  setNickname(trimmed.value)
+  touchedName.value = true
+  touchedEmail.value = true
+  if (nameError.value) return nameInput.value?.focus()
+  if (emailError.value) return emailInput.value?.focus()
+  setProfile(trimmed.value, email.value)
   emit('close')
 }
 </script>
@@ -50,12 +74,15 @@ function submit() {
             <path d="M4.5 20c1.6-3.3 4.3-5 7.5-5s5.9 1.7 7.5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
         </div>
-        <h1 id="gate-title">{{ editing ? 'Change Your Name' : "What's your name?" }}</h1>
-        <p class="sub">Your name or nickname is shown on every sticky you move, so others know who placed it.</p>
+        <h1 id="gate-title">{{ title }}</h1>
+        <p class="sub">
+          Your name or nickname is shown on every sticky you move, so others know who placed it. Your work email
+          is required too.
+        </p>
         <label class="field">
           <span class="visually-hidden">Name or nickname</span>
           <input
-            ref="input"
+            ref="nameInput"
             v-model="name"
             type="text"
             maxlength="30"
@@ -63,24 +90,55 @@ function submit() {
             autocapitalize="words"
             autocorrect="off"
             spellcheck="false"
-            enterkeyhint="done"
+            enterkeyhint="next"
             placeholder="Name or nickname"
-            :aria-invalid="touched && !!error"
+            :aria-invalid="touchedName && !!nameError"
             aria-describedby="gate-err"
-            @blur="touched = true"
-            @keydown.enter.prevent="!$event.isComposing && submit()"
+            @blur="touchedName = true"
+            @keydown.enter.prevent="!$event.isComposing && nextField()"
           />
-          <button v-if="name" type="button" class="clear" aria-label="Clear" @click="name = ''; input?.focus()">
+          <button v-if="name" type="button" class="clear" aria-label="Clear name" @click="name = ''; nameInput?.focus()">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="10" fill="currentColor" />
               <path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--bg-cell)" stroke-width="2" stroke-linecap="round" />
             </svg>
           </button>
         </label>
-        <p id="gate-err" class="err" aria-live="polite" :class="{ bad: touched && !!error }">{{ touched && error ? error : '2–30 characters' }}</p>
+        <p id="gate-err" class="err" aria-live="polite" :class="{ bad: touchedName && !!nameError }">
+          {{ touchedName && nameError ? nameError : '2–30 characters' }}
+        </p>
+        <label class="field second">
+          <span class="visually-hidden">Work email</span>
+          <input
+            ref="emailInput"
+            v-model="email"
+            type="email"
+            inputmode="email"
+            maxlength="254"
+            autocomplete="email"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="done"
+            placeholder="Work email"
+            :aria-invalid="touchedEmail && !!emailError"
+            aria-describedby="gate-email-err"
+            @blur="touchedEmail = true"
+            @keydown.enter.prevent="!$event.isComposing && submit()"
+          />
+          <button v-if="email" type="button" class="clear" aria-label="Clear email" @click="email = ''; emailInput?.focus()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" fill="currentColor" />
+              <path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--bg-cell)" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </label>
+        <p id="gate-email-err" class="err" aria-live="polite" :class="{ bad: touchedEmail && !!emailError }">
+          {{ touchedEmail && emailError ? emailError : 'name@company.com' }}
+        </p>
       </div>
       <div class="actions">
-        <button type="submit" class="btn primary" :disabled="!!error">
+        <button type="submit" class="btn primary" :disabled="invalid">
           {{ editing ? 'Save' : 'Continue' }}
         </button>
       </div>
@@ -209,6 +267,9 @@ input:focus {
   font-size: 13px;
   text-align: left;
 }
+.field.second {
+  margin-top: 14px;
+}
 .err.bad {
   color: var(--danger);
 }
@@ -275,6 +336,9 @@ input:focus {
   }
   .err {
     margin-top: 4px;
+  }
+  .field.second {
+    margin-top: 8px;
   }
   .actions {
     padding: 10px max(24px, var(--safe-l), var(--safe-r)) 0;

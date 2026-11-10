@@ -5,7 +5,7 @@
 //   GET    <base>api/assignments        → Assignment[]
 //   POST   <base>api/assignments        → 201 | 400 invalid | 409 duplicate
 //   PATCH  <base>api/assignments/:id    → 204 | 400 invalid | 404 not found
-//   DELETE <base>api/assignments/:id    → 204   (optional body {actor, client_id} for the paper trail)
+//   DELETE <base>api/assignments/:id    → 204   (optional body {actor, actor_email, client_id} for the paper trail)
 //   GET    <base>api/history?limit&before → HistoryEvent[] newest first (paper trail)
 //   GET    <base>api/events             → text/event-stream of {op,row|id|event} (+ `event: ping` every 15 s)
 //
@@ -14,8 +14,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 
-const COLUMNS = 'id, operator_id, schedule_id, moved_by, client_id, moved_at'
-const EVENT_COLUMNS = 'id, at, action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, client_id'
+const COLUMNS = 'id, operator_id, schedule_id, moved_by, moved_by_email, client_id, moved_at'
+const EVENT_COLUMNS = 'id, at, action, assignment_id, operator_id, from_schedule_id, to_schedule_id, actor, actor_email, client_id'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)$/i
 const MAX_BODY = 10_000
@@ -71,6 +71,9 @@ function check(b: Record<string, unknown>, fields: string[]) {
       const max = f === 'moved_by' ? 60 : 64
       if (typeof v !== 'string' || !v.trim()) bad(f, 'expected a non-empty string')
       else if ([...v].length > max) bad(f, `at most ${max} characters`)
+    } else if (f === 'moved_by_email') {
+      // Optional (older clients don't send it).
+      if (v != null && (typeof v !== 'string' || v.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v))) bad(f, 'expected an email')
     } else if (f === 'moved_at') {
       if (typeof v !== 'string' || !ISO_RE.test(v) || Number.isNaN(Date.parse(v))) bad(f, 'expected an ISO timestamp')
     }
@@ -278,29 +281,34 @@ export function pgDevApi(databaseUrl: string | undefined, base: string): Plugin 
         if (req.method === 'POST' && !id) {
           const b = await readJson(req)
           // id and moved_at are optional (DB defaults), like a Supabase insert.
-          check(b, ['operator_id', 'schedule_id', 'moved_by', 'client_id'])
+          check(b, ['operator_id', 'schedule_id', 'moved_by', 'moved_by_email', 'client_id'])
           if (b.id != null) check(b, ['id'])
           if (b.moved_at != null) check(b, ['moved_at'])
           await pool.query(
             `insert into assignments (${COLUMNS})
-             values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, coalesce($6::timestamptz, now()))`,
-            [b.id ?? null, b.operator_id, b.schedule_id, b.moved_by, b.client_id, b.moved_at ?? null],
+             values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, coalesce($7::timestamptz, now()))`,
+            [b.id ?? null, b.operator_id, b.schedule_id, b.moved_by, b.moved_by_email ?? null, b.client_id, b.moved_at ?? null],
           )
           return send(res, 201)
         }
         if (req.method === 'PATCH' && id) {
           const b = await readJson(req)
-          check(b, ['schedule_id', 'moved_by', 'client_id', 'moved_at'])
+          check(b, ['schedule_id', 'moved_by', 'moved_by_email', 'client_id', 'moved_at'])
           const { rowCount } = await pool.query(
-            `update assignments set schedule_id = $2, moved_by = $3, client_id = $4, moved_at = $5 where id = $1`,
-            [id, b.schedule_id, b.moved_by, b.client_id, b.moved_at],
+            `update assignments set schedule_id = $2, moved_by = $3, moved_by_email = $4, client_id = $5, moved_at = $6 where id = $1`,
+            [id, b.schedule_id, b.moved_by, b.moved_by_email ?? null, b.client_id, b.moved_at],
           )
           return rowCount ? send(res, 204) : send(res, 404, { code: 'not_found', message: 'That sticky was already removed' })
         }
         if (req.method === 'DELETE' && id) {
           // Through remove_assignment() so the paper trail records who removed it.
           const b = await readJson(req)
-          await pool.query('select remove_assignment($1, $2, $3)', [id, optText(b.actor, 60), optText(b.client_id, 64)])
+          await pool.query('select remove_assignment($1, $2, $3, $4)', [
+            id,
+            optText(b.actor, 60),
+            optText(b.actor_email, 254),
+            optText(b.client_id, 64),
+          ])
           return send(res, 204)
         }
         return send(res, 405, { code: 'other', message: 'Method not allowed' })

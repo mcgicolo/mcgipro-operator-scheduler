@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { addAssignment, assignmentsBySchedule, groups, moveAssignment, requestRemove, state } from './store/board'
+import { addAssignment, assignmentsBySchedule, groups, moveAssignment, profileComplete, requestRemove, state } from './store/board'
 import { drag, setDropHandler } from './composables/useDrag'
 import TopBar from './components/TopBar.vue'
 import GroupHeader from './components/GroupHeader.vue'
@@ -19,7 +19,8 @@ const sheet = ref<SheetTarget | null>(null)
 const copyOpen = ref(false)
 /** History sheet: null = closed, else the search it opens with ('' = everything). */
 const historyQuery = ref<string | null>(null)
-const needsName = computed(() => state.phase === 'ready' && !state.nickname)
+/** Name and work email are required: the gate stays up until both are set. */
+const needsName = computed(() => state.phase === 'ready' && !profileComplete.value)
 /** Any modal open: everything outside it (bars, board, tray) is made inert. */
 const modalOpen = computed(
   () =>

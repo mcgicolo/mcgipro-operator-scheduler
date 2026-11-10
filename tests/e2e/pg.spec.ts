@@ -98,6 +98,8 @@ test('move persists to the DB and shows in the other page', async ({ browser }, 
   await expect(chips(b, S2.id)).toHaveCount(0)
 
   await expect.poll(() => dbRows().map((r) => [r.id, r.schedule_id])).toEqual([[id, S3.id]])
+  expect(psql(`select moved_by_email from assignments where id = '${id}'`)).toBe('e2e@example.com')
+  expect(psql("select actor_email from assignment_events where action = 'move'")).toBe('e2e@example.com')
 
   await a.context().close()
   await b.context().close()
@@ -121,6 +123,10 @@ test('remove via ✕ + confirm deletes the row', async ({ browser }, info) => {
 
   await expect.poll(() => dbRows().length).toBe(0)
   await expect(chip(b, S1.id, ANDREI)).toHaveCount(0)
+  // The paper trail records the work email for the add and the remove (via remove_assignment).
+  expect(psql('select action, actor, actor_email from assignment_events order by id')).toBe(
+    'add|Remover|e2e@example.com\nremove|Remover|e2e@example.com',
+  )
 
   await a.context().close()
   await b.context().close()

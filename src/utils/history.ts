@@ -17,6 +17,7 @@ export interface HistoryEntry {
   from: string | null
   to: string | null
   actor: string | null
+  actorEmail: string | null
   clientId: string | null
 }
 
@@ -34,6 +35,7 @@ function entryOf(e: HistoryEvent): HistoryEntry {
     from: e.from_schedule_id,
     to: e.to_schedule_id,
     actor: e.actor,
+    actorEmail: e.actor_email ?? null,
     clientId: e.client_id,
   }
 }
